@@ -1,4 +1,7 @@
-import React, { createContext, useContext, useState, useMemo } from 'react'
+import React, { createContext, useContext, useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/use-auth'
+import { toast } from '@/hooks/use-toast'
 
 export type TransactionType = 'entrada' | 'saida'
 export type TransactionStatus = 'previsto' | 'realizado'
@@ -21,6 +24,7 @@ export interface Activity {
   title: string
   status: ActivityStatus
   time?: string
+  observations?: string
 }
 
 interface FinanceStoreContext {
@@ -30,103 +34,88 @@ interface FinanceStoreContext {
   currentDate: string
   toggleSkip: () => void
   setCurrentDate: (date: string) => void
-  addTransaction: (t: Transaction) => void
+  addTransaction: (t: Omit<Transaction, 'id'>) => void
+  updateTransaction: (id: string, partial: Partial<Transaction>) => void
   updateTransactionStatus: (id: string, status: TransactionStatus) => void
+  updateActivity: (id: string, partial: Partial<Activity>) => void
   calculateRuptureDay: () => { date: string | null; risk: 'Baixo' | 'Médio' | 'Alto' | 'Crítico' }
 }
-
-const mockTransactions: Transaction[] = [
-  {
-    id: '1',
-    date: '2026-03-11',
-    type: 'entrada',
-    status: 'realizado',
-    amount: 120,
-    entity: 'Bruna',
-    description: 'Emprestimo',
-    category: 'Outros',
-  },
-  {
-    id: '2',
-    date: '2026-03-11',
-    type: 'saida',
-    status: 'previsto',
-    amount: 164,
-    entity: 'Cosme',
-    description: 'VT',
-    category: 'RH',
-  },
-  {
-    id: '3',
-    date: '2026-03-11',
-    type: 'saida',
-    status: 'realizado',
-    amount: 172.5,
-    entity: 'Braspress',
-    description: 'Boleto',
-    category: 'Frete',
-  },
-  {
-    id: '4',
-    date: '2026-03-12',
-    type: 'entrada',
-    status: 'realizado',
-    amount: 700,
-    entity: 'Multitex',
-    description: 'Recebimento',
-    category: 'Vendas',
-  },
-  {
-    id: '5',
-    date: '2026-03-12',
-    type: 'saida',
-    status: 'realizado',
-    amount: 300,
-    entity: 'Açovisa',
-    description: 'Tarugo Harsco',
-    category: 'Fornecedor',
-  },
-  {
-    id: '6',
-    date: '2026-03-15',
-    type: 'saida',
-    status: 'previsto',
-    amount: 1500,
-    entity: 'Impostos',
-    description: 'DAS',
-    category: 'Impostos',
-  },
-]
-
-const mockActivities: Activity[] = [
-  { id: '1', date: '2026-03-11', title: 'Exame Mama - 09:00', status: 'ok', time: '09:00' },
-  { id: '2', date: '2026-03-11', title: 'Cotação do Frete Bomba', status: 'parado' },
-  { id: '3', date: '2026-03-11', title: 'Pagar Boleto Braspress', status: 'ok' },
-  { id: '4', date: '2026-03-11', title: 'Programas PCMSO', status: 'aguardando' },
-  { id: '5', date: '2026-03-11', title: 'Cotação Harsco', status: 'andamento' },
-  { id: '6', date: '2026-03-11', title: 'Cotação Spreader IRB', status: 'andamento' },
-  { id: '7', date: '2026-03-11', title: 'Cotação Spreader MTX', status: 'parado' },
-  { id: '8', date: '2026-03-11', title: 'Proposta Conector', status: 'ok' },
-]
 
 export const FinanceContext = createContext<FinanceStoreContext | null>(null)
 
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
-  const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions)
-  const [activities] = useState<Activity[]>(mockActivities)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [activities, setActivities] = useState<Activity[]>([])
   const [isSkipOpen, setIsSkipOpen] = useState(false)
-  const [currentDate, setCurrentDate] = useState('2026-03-11')
+  const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0])
+  const { session } = useAuth()
+
+  useEffect(() => {
+    if (session?.user) {
+      fetchData()
+    }
+  }, [session?.user])
+
+  const fetchData = async () => {
+    try {
+      const [resTx, resAct] = await Promise.all([
+        supabase.from('lancamentos').select('*').order('date', { ascending: false }),
+        supabase.from('atividades').select('*').order('date', { ascending: false }),
+      ])
+      if (resTx.data) setTransactions(resTx.data as Transaction[])
+      if (resAct.data) setActivities(resAct.data as Activity[])
+    } catch (err) {
+      console.error('Error fetching data:', err)
+    }
+  }
 
   const toggleSkip = () => setIsSkipOpen(!isSkipOpen)
 
-  const addTransaction = (t: Transaction) => setTransactions([...transactions, t])
+  const addTransaction = async (t: Omit<Transaction, 'id'>) => {
+    const { data, error } = await supabase.from('lancamentos').insert(t).select().single()
+    if (error) {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível salvar o lançamento.',
+        variant: 'destructive',
+      })
+      return
+    }
+    if (data) setTransactions((prev) => [data as Transaction, ...prev])
+  }
+
+  const updateTransaction = async (id: string, partial: Partial<Transaction>) => {
+    const { error } = await supabase.from('lancamentos').update(partial).eq('id', id)
+    if (error) {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível atualizar o lançamento.',
+        variant: 'destructive',
+      })
+      return
+    }
+    setTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, ...partial } : t)))
+  }
 
   const updateTransactionStatus = (id: string, status: TransactionStatus) => {
-    setTransactions(transactions.map((t) => (t.id === id ? { ...t, status } : t)))
+    updateTransaction(id, { status })
+  }
+
+  const updateActivity = async (id: string, partial: Partial<Activity>) => {
+    const { error } = await supabase.from('atividades').update(partial).eq('id', id)
+    if (error) {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível atualizar a atividade.',
+        variant: 'destructive',
+      })
+      return
+    }
+    setActivities((prev) => prev.map((a) => (a.id === id ? { ...a, ...partial } : a)))
   }
 
   const calculateRuptureDay = () => {
-    let balance = 55.66 // Initial balance for mock scenario
+    let balance = 55.66
     const futureTx = transactions
       .filter((t) => t.date >= currentDate && t.status === 'previsto')
       .sort((a, b) => a.date.localeCompare(b.date))
@@ -148,7 +137,9 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     toggleSkip,
     setCurrentDate,
     addTransaction,
+    updateTransaction,
     updateTransactionStatus,
+    updateActivity,
     calculateRuptureDay,
   }
 

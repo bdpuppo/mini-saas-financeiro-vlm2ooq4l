@@ -1,9 +1,75 @@
+import { useState, useEffect } from 'react'
 import { Activity } from '@/stores/useFinanceStore'
 import { getStatusClass } from '@/utils/formatters'
+import useFinanceStore from '@/stores/useFinanceStore'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 
 interface ActivityPanelProps {
   activities: Activity[]
   date: string
+}
+
+function EditableActivityRow({ act }: { act: Activity }) {
+  const { updateActivity } = useFinanceStore()
+  const [title, setTitle] = useState(act.title)
+  const [obs, setObs] = useState(act.observations || '')
+
+  useEffect(() => {
+    setTitle(act.title)
+    setObs(act.observations || '')
+  }, [act.title, act.observations])
+
+  return (
+    <tr className="border-b border-slate-200 border-dashed last:border-0 hover:bg-slate-50 transition-colors">
+      <td className="p-0 border-r border-slate-200 border-dashed">
+        <div className="flex flex-col">
+          <input
+            className="w-full bg-transparent px-2 pt-2 pb-0.5 focus:bg-white outline-none font-medium text-slate-800"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={() => {
+              if (title !== act.title) updateActivity(act.id, { title })
+            }}
+            placeholder="Título da atividade"
+          />
+          <input
+            className="w-full bg-transparent px-2 pb-2 pt-0.5 focus:bg-white outline-none text-xs text-slate-500 italic"
+            value={obs}
+            onChange={(e) => setObs(e.target.value)}
+            onBlur={() => {
+              if (obs !== (act.observations || '')) updateActivity(act.id, { observations: obs })
+            }}
+            placeholder="Adicionar observação..."
+          />
+        </div>
+      </td>
+      <td className="p-1 w-[130px] border-b-2 border-white align-middle">
+        <Select
+          value={act.status}
+          onValueChange={(v) => updateActivity(act.id, { status: v as any })}
+        >
+          <SelectTrigger
+            className={cn('h-8 text-xs border-0 w-full focus:ring-0', getStatusClass(act.status))}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ok">OK</SelectItem>
+            <SelectItem value="andamento">ANDAMENTO</SelectItem>
+            <SelectItem value="aguardando">AGUARDANDO</SelectItem>
+            <SelectItem value="parado">PARADO</SelectItem>
+          </SelectContent>
+        </Select>
+      </td>
+    </tr>
+  )
 }
 
 export function ActivityPanel({ activities }: ActivityPanelProps) {
@@ -28,19 +94,23 @@ export function ActivityPanel({ activities }: ActivityPanelProps) {
         <div className="w-full md:w-[200px] shrink-0 border-r border-slate-200 flex flex-col">
           <div className="aspect-square bg-slate-100 relative">
             <img
-              src="https://img.usecurling.com/p/250/250?q=bees"
-              alt="Tema do dia"
+              src="https://img.usecurling.com/p/250/250?q=workspace&color=blue"
+              alt="Tema"
               className="w-full h-full object-cover"
             />
           </div>
-          <div className="p-2 space-y-1 text-xs">
+          <div className="p-2 space-y-1 text-xs bg-slate-50 flex-1">
             {['Aguardando', 'Andamento', 'Parado', 'OK'].map((status) => {
               const count = statusCounts[status.toLowerCase()] || 0
               const pct = total ? Math.round((count / total) * 100) : 0
               return (
                 <div
                   key={status}
-                  className={`flex justify-between px-2 py-1 rounded ${getStatusClass(status.toLowerCase())} bg-opacity-40`}
+                  className={cn(
+                    'flex justify-between px-2 py-1.5 rounded',
+                    getStatusClass(status.toLowerCase()),
+                    'bg-opacity-40',
+                  )}
                 >
                   <span className="font-medium">{status}</span>
                   <span>{pct}%</span>
@@ -50,43 +120,39 @@ export function ActivityPanel({ activities }: ActivityPanelProps) {
           </div>
         </div>
 
-        <div className="flex-1">
-          <table className="w-full text-sm">
+        <div className="flex-1 flex flex-col min-h-[300px]">
+          <table className="w-full text-sm flex-1">
             <tbody>
-              {activities.map((act, i) => (
-                <tr
-                  key={act.id}
-                  className="border-b border-slate-200 border-dashed last:border-0 hover:bg-slate-50"
-                >
-                  <td className="p-2 border-r border-slate-200 border-dashed">{act.title}</td>
-                  <td
-                    className={`p-2 text-center w-[120px] border-b-2 border-white ${getStatusClass(act.status)}`}
-                  >
-                    {act.status.toUpperCase()}
+              {activities.map((act) => (
+                <EditableActivityRow key={act.id} act={act} />
+              ))}
+              {activities.length === 0 && (
+                <tr>
+                  <td colSpan={2} className="p-8 text-center text-slate-400 italic">
+                    Nenhuma atividade registrada para hoje.
                   </td>
                 </tr>
-              ))}
-              {Array.from({ length: Math.max(0, 10 - activities.length) }).map((_, i) => (
-                <tr key={`empty-${i}`} className="border-b border-slate-200 border-dashed h-9">
-                  <td className="p-2 border-r border-slate-200 border-dashed"></td>
-                  <td className="p-2"></td>
-                </tr>
-              ))}
+              )}
             </tbody>
           </table>
-        </div>
-      </div>
 
-      <div className="mt-auto border-t border-slate-300">
-        <div className="bg-slate-800 text-white text-center py-1.5 text-sm font-bold">
-          Observações
-        </div>
-        <div className="p-3 bg-yellow-50/50 min-h-[100px] text-sm italic text-slate-700">
-          <p className="border-b border-slate-300 border-dashed pb-1">
-            Cosme tem medico - Não Veio
-          </p>
-          <div className="h-6 border-b border-slate-300 border-dashed"></div>
-          <div className="h-6 border-b border-slate-300 border-dashed"></div>
+          <div className="mt-auto border-t border-slate-300">
+            <div className="bg-slate-800 text-white text-center py-1.5 text-sm font-bold">
+              Resumo de Observações
+            </div>
+            <div className="p-3 bg-yellow-50/50 min-h-[80px] text-sm italic text-slate-700 space-y-1.5">
+              {activities
+                .filter((a) => a.observations)
+                .map((a) => (
+                  <p key={a.id} className="border-b border-slate-300 border-dashed pb-1.5">
+                    <span className="font-semibold">{a.title}:</span> {a.observations}
+                  </p>
+                ))}
+              {activities.filter((a) => a.observations).length === 0 && (
+                <p className="text-slate-400 text-center py-2">Sem observações adicionais hoje.</p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

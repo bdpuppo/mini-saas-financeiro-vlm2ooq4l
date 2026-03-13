@@ -10,26 +10,24 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
-import { CheckCircle, Lightbulb } from 'lucide-react'
+import { CheckCircle, Lightbulb, Pencil } from 'lucide-react'
 import { Transaction } from '@/stores/useFinanceStore'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import useFinanceStore from '@/stores/useFinanceStore'
 import { toast } from '@/hooks/use-toast'
+import { cn } from '@/lib/utils'
 
 interface Props {
   transactions: Transaction[]
+  onEdit?: (tx: Transaction) => void
 }
 
-export function TransactionTable({ transactions }: Props) {
+export function TransactionTable({ transactions, onEdit }: Props) {
   const { updateTransactionStatus, toggleSkip } = useFinanceStore()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedIds(new Set(transactions.map((t) => t.id)))
-    } else {
-      setSelectedIds(new Set())
-    }
+    setSelectedIds(checked ? new Set(transactions.map((t) => t.id)) : new Set())
   }
 
   const handleSelectOne = (id: string, checked: boolean) => {
@@ -49,16 +47,10 @@ export function TransactionTable({ transactions }: Props) {
     })
   }
 
-  const handleRowClick = (tx: Transaction) => {
-    if (tx.amount > 1000 && tx.status === 'previsto') {
-      toggleSkip()
-    }
-  }
-
   return (
     <div className="space-y-4">
       {selectedIds.size > 0 && (
-        <div className="bg-slate-100 p-3 rounded-md flex items-center justify-between border border-slate-200 animate-in fade-in slide-in-from-top-2">
+        <div className="bg-slate-100 p-3 rounded-md flex items-center justify-between border border-slate-200 animate-in fade-in">
           <span className="text-sm font-medium text-slate-700">
             {selectedIds.size} item(s) selecionado(s)
           </span>
@@ -68,7 +60,7 @@ export function TransactionTable({ transactions }: Props) {
             className="bg-green-600 hover:bg-green-700"
           >
             <CheckCircle className="h-4 w-4 mr-2" />
-            Marcar como Realizado / Pago
+            Marcar Realizado
           </Button>
         </div>
       )}
@@ -89,54 +81,76 @@ export function TransactionTable({ transactions }: Props) {
               <TableHead>Categoria</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Valor</TableHead>
-              <TableHead className="w-[50px]"></TableHead>
+              <TableHead className="w-[80px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {transactions.map((tx) => (
-              <TableRow
-                key={tx.id}
-                className="hover:bg-slate-50 cursor-pointer transition-colors group"
-                onClick={() => handleRowClick(tx)}
-              >
-                <TableCell onClick={(e) => e.stopPropagation()}>
+              <TableRow key={tx.id} className="hover:bg-slate-50/70 transition-colors group">
+                <TableCell>
                   <Checkbox
                     checked={selectedIds.has(tx.id)}
                     onCheckedChange={(c) => handleSelectOne(tx.id, !!c)}
                   />
                 </TableCell>
-                <TableCell className="font-medium">{formatDate(tx.date)}</TableCell>
-                <TableCell>{tx.entity}</TableCell>
-                <TableCell>{tx.description}</TableCell>
+                <TableCell className="font-medium text-slate-600">{formatDate(tx.date)}</TableCell>
+                <TableCell className="font-medium">{tx.entity}</TableCell>
+                <TableCell className="text-slate-600">{tx.description}</TableCell>
                 <TableCell>
-                  <Badge variant="outline" className="bg-slate-100 font-normal">
+                  <Badge variant="outline" className="font-normal">
                     {tx.category}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    variant={tx.status === 'realizado' ? 'default' : 'secondary'}
-                    className={
-                      tx.status === 'realizado'
-                        ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                        : ''
+                  <button
+                    onClick={() =>
+                      updateTransactionStatus(
+                        tx.id,
+                        tx.status === 'realizado' ? 'previsto' : 'realizado',
+                      )
                     }
+                    className={cn(
+                      'px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors inline-flex items-center',
+                      tx.status === 'realizado'
+                        ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200'
+                        : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200',
+                    )}
                   >
-                    {tx.status}
-                  </Badge>
+                    {tx.status.toUpperCase()}
+                  </button>
                 </TableCell>
                 <TableCell
-                  className={`text-right font-mono font-medium ${tx.type === 'entrada' ? 'text-green-600' : 'text-red-600'}`}
+                  className={cn(
+                    'text-right font-mono font-medium',
+                    tx.type === 'entrada' ? 'text-green-600' : 'text-red-600',
+                  )}
                 >
                   {tx.type === 'entrada' ? '+' : '-'}
-                  {formatCurrency(tx.amount)}
+                  {formatCurrency(Number(tx.amount))}
                 </TableCell>
                 <TableCell>
-                  {tx.amount > 1000 && tx.status === 'previsto' && (
-                    <div title="Clique para ver sugestões do SKIP">
-                      <Lightbulb className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                  )}
+                  <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {Number(tx.amount) > 1000 && tx.status === 'previsto' && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-primary hover:text-yellow-600 hover:bg-yellow-50"
+                        onClick={toggleSkip}
+                        title="Sugestões do SKIP"
+                      >
+                        <Lightbulb className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-slate-500 hover:text-slate-900"
+                      onClick={() => onEdit?.(tx)}
+                      title="Editar lançamento"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

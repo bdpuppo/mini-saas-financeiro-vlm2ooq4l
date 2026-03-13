@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Sheet,
   SheetContent,
@@ -17,17 +17,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import useFinanceStore, { TransactionType, TransactionStatus } from '@/stores/useFinanceStore'
+import useFinanceStore, {
+  TransactionType,
+  TransactionStatus,
+  Transaction,
+} from '@/stores/useFinanceStore'
 import { toast } from '@/hooks/use-toast'
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   defaultType?: TransactionType | 'all'
+  editItem?: Transaction | null
 }
 
-export function TransactionFormDrawer({ open, onOpenChange, defaultType = 'all' }: Props) {
-  const { addTransaction } = useFinanceStore()
+export function TransactionFormDrawer({
+  open,
+  onOpenChange,
+  defaultType = 'all',
+  editItem,
+}: Props) {
+  const { addTransaction, updateTransaction } = useFinanceStore()
 
   const [type, setType] = useState<TransactionType>(defaultType === 'all' ? 'saida' : defaultType)
   const [status, setStatus] = useState<TransactionStatus>('previsto')
@@ -37,20 +47,39 @@ export function TransactionFormDrawer({ open, onOpenChange, defaultType = 'all' 
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('')
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (editItem) {
+      setType(editItem.type)
+      setStatus(editItem.status)
+      setDate(editItem.date)
+      setAmount(editItem.amount.toString())
+      setEntity(editItem.entity)
+      setDescription(editItem.description || '')
+      setCategory(editItem.category || '')
+    } else if (open) {
+      setDate(new Date().toISOString().split('T')[0])
+      setAmount('')
+      setEntity('')
+      setDescription('')
+      setCategory('')
+      setStatus('previsto')
+      setType(defaultType === 'all' ? 'saida' : defaultType)
+    }
+  }, [editItem, open, defaultType])
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!date || !amount || !entity || !category) {
       toast({
-        title: 'Erro de Validação',
+        title: 'Erro',
         description: 'Preencha todos os campos obrigatórios.',
         variant: 'destructive',
       })
       return
     }
 
-    addTransaction({
-      id: Math.random().toString(36).substring(7),
+    const payload = {
       type,
       status,
       date,
@@ -58,39 +87,34 @@ export function TransactionFormDrawer({ open, onOpenChange, defaultType = 'all' 
       entity,
       description,
       category,
-    })
+    }
 
-    toast({
-      title: 'Sucesso',
-      description: 'Lançamento adicionado com sucesso!',
-    })
+    if (editItem) {
+      await updateTransaction(editItem.id, payload)
+      toast({ title: 'Sucesso', description: 'Lançamento atualizado com sucesso!' })
+    } else {
+      await addTransaction(payload)
+      toast({ title: 'Sucesso', description: 'Lançamento adicionado com sucesso!' })
+    }
 
     onOpenChange(false)
-    resetForm()
-  }
-
-  const resetForm = () => {
-    setDate('')
-    setAmount('')
-    setEntity('')
-    setDescription('')
-    setCategory('')
-    setStatus('previsto')
   }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-[425px] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Novo Lançamento</SheetTitle>
+          <SheetTitle>{editItem ? 'Editar Lançamento' : 'Novo Lançamento'}</SheetTitle>
           <SheetDescription>
-            Adicione uma nova conta a pagar ou receber ao sistema.
+            {editItem
+              ? 'Atualize as informações do lançamento.'
+              : 'Adicione uma nova conta ao sistema.'}
           </SheetDescription>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6 mt-6">
+        <form onSubmit={handleSubmit} className="space-y-5 mt-6">
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>Tipo</Label>
               <Select value={type} onValueChange={(val) => setType(val as TransactionType)}>
                 <SelectTrigger>
@@ -102,8 +126,8 @@ export function TransactionFormDrawer({ open, onOpenChange, defaultType = 'all' 
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Natureza</Label>
+            <div className="space-y-1.5">
+              <Label>Status</Label>
               <Select value={status} onValueChange={(val) => setStatus(val as TransactionStatus)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione..." />
@@ -117,11 +141,11 @@ export function TransactionFormDrawer({ open, onOpenChange, defaultType = 'all' 
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Data / Vencimento</Label>
+            <div className="space-y-1.5">
+              <Label>Data</Label>
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>Valor (R$)</Label>
               <Input
                 type="number"
@@ -134,17 +158,17 @@ export function TransactionFormDrawer({ open, onOpenChange, defaultType = 'all' 
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Entidade (Cliente/Fornecedor)</Label>
+          <div className="space-y-1.5">
+            <Label>Entidade</Label>
             <Input
               value={entity}
               onChange={(e) => setEntity(e.target.value)}
-              placeholder="Nome da empresa ou pessoa"
+              placeholder="Cliente ou fornecedor"
               required
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label>Descrição</Label>
             <Input
               value={description}
@@ -153,11 +177,11 @@ export function TransactionFormDrawer({ open, onOpenChange, defaultType = 'all' 
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label>Categoria</Label>
             <Select value={category} onValueChange={setCategory}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecione a categoria..." />
+                <SelectValue placeholder="Selecione..." />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Impostos">Impostos</SelectItem>
