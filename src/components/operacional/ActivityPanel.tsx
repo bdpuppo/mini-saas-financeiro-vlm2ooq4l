@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Activity } from '@/stores/useFinanceStore'
+import { Activity, ActivityStatus } from '@/stores/useFinanceStore'
 import { getStatusClass } from '@/utils/formatters'
 import useFinanceStore from '@/stores/useFinanceStore'
 import {
@@ -19,12 +19,12 @@ interface ActivityPanelProps {
 function EditableActivityRow({ act }: { act: Activity }) {
   const { updateActivity } = useFinanceStore()
   const [title, setTitle] = useState(act.title)
-  const [obs, setObs] = useState(act.observations || '')
+  const [obs, setObs] = useState(act.notes || '')
 
   useEffect(() => {
     setTitle(act.title)
-    setObs(act.observations || '')
-  }, [act.title, act.observations])
+    setObs(act.notes || '')
+  }, [act.title, act.notes])
 
   return (
     <tr className="border-b border-slate-200 border-dashed last:border-0 hover:bg-slate-50 transition-colors">
@@ -44,7 +44,7 @@ function EditableActivityRow({ act }: { act: Activity }) {
             value={obs}
             onChange={(e) => setObs(e.target.value)}
             onBlur={() => {
-              if (obs !== (act.observations || '')) updateActivity(act.id, { observations: obs })
+              if (obs !== (act.notes || '')) updateActivity(act.id, { notes: obs })
             }}
             placeholder="Adicionar observação..."
           />
@@ -53,7 +53,7 @@ function EditableActivityRow({ act }: { act: Activity }) {
       <td className="p-1 w-[130px] border-b-2 border-white align-middle">
         <Select
           value={act.status}
-          onValueChange={(v) => updateActivity(act.id, { status: v as any })}
+          onValueChange={(v) => updateActivity(act.id, { status: v as ActivityStatus })}
         >
           <SelectTrigger
             className={cn('h-8 text-xs border-0 w-full focus:ring-0', getStatusClass(act.status))}
@@ -61,10 +61,10 @@ function EditableActivityRow({ act }: { act: Activity }) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="ok">OK</SelectItem>
-            <SelectItem value="andamento">ANDAMENTO</SelectItem>
-            <SelectItem value="aguardando">AGUARDANDO</SelectItem>
-            <SelectItem value="parado">PARADO</SelectItem>
+            <SelectItem value="OK">OK</SelectItem>
+            <SelectItem value="Andamento">ANDAMENTO</SelectItem>
+            <SelectItem value="Aguardando">AGUARDANDO</SelectItem>
+            <SelectItem value="Parado">PARADO</SelectItem>
           </SelectContent>
         </Select>
       </td>
@@ -75,7 +75,8 @@ function EditableActivityRow({ act }: { act: Activity }) {
 export function ActivityPanel({ activities }: ActivityPanelProps) {
   const statusCounts = activities.reduce(
     (acc, act) => {
-      acc[act.status] = (acc[act.status] || 0) + 1
+      const key = act.status.toLowerCase()
+      acc[key] = (acc[key] || 0) + 1
       return acc
     },
     {} as Record<string, number>,
@@ -142,13 +143,13 @@ export function ActivityPanel({ activities }: ActivityPanelProps) {
             </div>
             <div className="p-3 bg-yellow-50/50 min-h-[80px] text-sm italic text-slate-700 space-y-1.5">
               {activities
-                .filter((a) => a.observations)
+                .filter((a) => a.notes)
                 .map((a) => (
                   <p key={a.id} className="border-b border-slate-300 border-dashed pb-1.5">
-                    <span className="font-semibold">{a.title}:</span> {a.observations}
+                    <span className="font-semibold">{a.title}:</span> {a.notes}
                   </p>
                 ))}
-              {activities.filter((a) => a.observations).length === 0 && (
+              {activities.filter((a) => a.notes).length === 0 && (
                 <p className="text-slate-400 text-center py-2">Sem observações adicionais hoje.</p>
               )}
             </div>

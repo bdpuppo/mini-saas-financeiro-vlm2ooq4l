@@ -7,7 +7,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { getStatusClass, formatDate } from '@/utils/formatters'
 
 export default function Atividades() {
@@ -32,7 +31,9 @@ export default function Atividades() {
           <TableBody>
             {activities.map((act) => (
               <TableRow key={act.id} className="hover:bg-slate-50/50">
-                <TableCell className="font-medium text-slate-500">{formatDate(act.date)}</TableCell>
+                <TableCell className="font-medium text-slate-500">
+                  {formatDate(act.activity_date)}
+                </TableCell>
                 <TableCell>{act.title}</TableCell>
                 <TableCell>
                   <div

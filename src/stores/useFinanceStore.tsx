@@ -5,7 +5,7 @@ import { toast } from '@/hooks/use-toast'
 
 export type TransactionType = 'entrada' | 'saida'
 export type TransactionStatus = 'previsto' | 'realizado'
-export type ActivityStatus = 'ok' | 'andamento' | 'aguardando' | 'parado'
+export type ActivityStatus = 'OK' | 'Andamento' | 'Aguardando' | 'Parado'
 
 export interface Transaction {
   id: string
@@ -20,11 +20,12 @@ export interface Transaction {
 
 export interface Activity {
   id: string
-  date: string
+  activity_date: string
   title: string
   status: ActivityStatus
-  time?: string
-  observations?: string
+  responsible?: string | null
+  percentage?: number
+  notes?: string | null
 }
 
 interface FinanceStoreContext {
@@ -60,7 +61,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     try {
       const [resTx, resAct] = await Promise.all([
         supabase.from('lancamentos').select('*').order('date', { ascending: false }),
-        supabase.from('atividades').select('*').order('date', { ascending: false }),
+        supabase.from('activities').select('*').order('activity_date', { ascending: false }),
       ])
       if (resTx.data) setTransactions(resTx.data as Transaction[])
       if (resAct.data) setActivities(resAct.data as Activity[])
@@ -102,7 +103,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   }
 
   const updateActivity = async (id: string, partial: Partial<Activity>) => {
-    const { error } = await supabase.from('atividades').update(partial).eq('id', id)
+    const { error } = await supabase.from('activities').update(partial).eq('id', id)
     if (error) {
       toast({
         title: 'Erro',
