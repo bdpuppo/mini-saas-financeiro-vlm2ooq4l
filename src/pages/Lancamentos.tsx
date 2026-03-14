@@ -4,7 +4,6 @@ import useFinanceStore, { Transaction } from '@/stores/useFinanceStore'
 import { TransactionTable } from '@/components/TransactionTable'
 import { TransactionFormDrawer } from '@/components/TransactionFormDrawer'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -22,12 +21,21 @@ const getWeekOfMonth = (dateStr: string) => {
 
 export default function Lancamentos() {
   const location = useLocation()
-  const { transactionsFT, transactionsAP, transactionsAR, isLoading } = useFinanceStore()
+  const {
+    transactionsFT,
+    transactionsAP,
+    transactionsAR,
+    isLoading,
+    categories,
+    counterparties,
+    costCenters,
+  } = useFinanceStore()
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [editTx, setEditTx] = useState<Transaction | null>(null)
 
   const [catFilter, setCatFilter] = useState('all')
-  const [entFilter, setEntFilter] = useState('')
+  const [entFilter, setEntFilter] = useState('all')
+  const [ccFilter, setCcFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [weekFilter, setWeekFilter] = useState('all')
 
@@ -44,16 +52,13 @@ export default function Lancamentos() {
     else if (filterType === 'saida') txs = transactionsAP
 
     if (catFilter !== 'all') txs = txs.filter((t) => t.category === catFilter)
-    if (entFilter) txs = txs.filter((t) => t.entity.toLowerCase().includes(entFilter.toLowerCase()))
+    if (entFilter !== 'all') txs = txs.filter((t) => t.entity === entFilter)
+    if (ccFilter !== 'all') txs = txs.filter((t) => t.costCenter === ccFilter)
 
     if (statusFilter !== 'all') {
-      if (statusFilter === 'realizado') {
-        txs = txs.filter(
-          (t) => t.status === 'realizado' || t.status === 'pago' || t.status === 'recebido',
-        )
-      } else if (statusFilter === 'previsto') {
-        txs = txs.filter((t) => t.status === 'previsto')
-      }
+      if (statusFilter === 'realizado')
+        txs = txs.filter((t) => ['realizado', 'pago', 'recebido'].includes(t.status))
+      else if (statusFilter === 'previsto') txs = txs.filter((t) => t.status === 'previsto')
     }
 
     if (weekFilter !== 'all') txs = txs.filter((t) => getWeekOfMonth(t.date) === weekFilter)
@@ -66,6 +71,7 @@ export default function Lancamentos() {
     filterType,
     catFilter,
     entFilter,
+    ccFilter,
     statusFilter,
     weekFilter,
   ])
@@ -95,7 +101,7 @@ export default function Lancamentos() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
         <div className="space-y-1.5">
           <Label className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
             Categoria
@@ -106,12 +112,11 @@ export default function Lancamentos() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas</SelectItem>
-              <SelectItem value="Impostos">Impostos</SelectItem>
-              <SelectItem value="Fornecedor">Fornecedor</SelectItem>
-              <SelectItem value="RH">RH / Folha</SelectItem>
-              <SelectItem value="Frete">Frete</SelectItem>
-              <SelectItem value="Vendas">Vendas</SelectItem>
-              <SelectItem value="Outros">Outros</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.id} value={c.name}>
+                  {c.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -119,12 +124,37 @@ export default function Lancamentos() {
           <Label className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
             Entidade
           </Label>
-          <Input
-            className="h-9 bg-white"
-            placeholder="Buscar cliente/fornecedor"
-            value={entFilter}
-            onChange={(e) => setEntFilter(e.target.value)}
-          />
+          <Select value={entFilter} onValueChange={setEntFilter}>
+            <SelectTrigger className="h-9 bg-white">
+              <SelectValue placeholder="Todas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              {counterparties.map((c) => (
+                <SelectItem key={c.id} value={c.name}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
+            C. de Custo
+          </Label>
+          <Select value={ccFilter} onValueChange={setCcFilter}>
+            <SelectTrigger className="h-9 bg-white">
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              {costCenters.map((c) => (
+                <SelectItem key={c.id} value={c.name}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
@@ -143,7 +173,7 @@ export default function Lancamentos() {
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
-            Semana do Mês
+            Semana
           </Label>
           <Select value={weekFilter} onValueChange={setWeekFilter}>
             <SelectTrigger className="h-9 bg-white">

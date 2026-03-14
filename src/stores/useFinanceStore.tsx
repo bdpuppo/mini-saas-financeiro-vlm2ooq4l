@@ -24,6 +24,7 @@ export interface Transaction {
   entity: string
   description: string
   category: string
+  costCenter: string
   rawSource?: 'ft' | 'ap' | 'ar'
 }
 
@@ -49,12 +50,17 @@ interface FinanceStoreContext {
   transactionsAP: Transaction[]
   transactionsAR: Transaction[]
   activities: Activity[]
+  categories: any[]
+  counterparties: any[]
+  costCenters: any[]
   toggleSkip: () => void
   setCurrentDate: (date: string) => void
   addTransaction: (t: any) => Promise<void>
   updateTransaction: (id: string, partial: any, rawSource?: string) => Promise<void>
   updateTransactionStatus: (id: string, status: string, rawSource?: string) => Promise<void>
+  addActivity: (partial: Partial<Activity>) => Promise<void>
   updateActivity: (id: string, partial: Partial<Activity>) => Promise<void>
+  deleteActivity: (id: string) => Promise<void>
   fetchData: () => Promise<void>
 }
 
@@ -69,6 +75,7 @@ const mapFT = (t: any): Transaction => ({
   entity: t.counterparties?.name || 'Desconhecido',
   description: t.description || '',
   category: t.financial_categories?.name || 'Sem Categoria',
+  costCenter: t.cost_centers?.name || 'Geral',
   rawSource: 'ft',
 })
 
@@ -81,6 +88,7 @@ const mapAP = (t: any): Transaction => ({
   entity: t.counterparties?.name || 'Desconhecido',
   description: t.description || '',
   category: t.financial_categories?.name || 'Sem Categoria',
+  costCenter: t.cost_centers?.name || 'Geral',
   rawSource: 'ap',
 })
 
@@ -93,6 +101,7 @@ const mapAR = (t: any): Transaction => ({
   entity: t.counterparties?.name || 'Desconhecido',
   description: t.description || '',
   category: t.financial_categories?.name || 'Sem Categoria',
+  costCenter: t.cost_centers?.name || 'Geral',
   rawSource: 'ar',
 })
 
@@ -113,13 +122,13 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   const [categories, setCategories] = useState<any[]>([])
   const [counterparties, setCounterparties] = useState<any[]>([])
+  const [costCenters, setCostCenters] = useState<any[]>([])
 
   const { session } = useAuth()
 
   useEffect(() => {
-    if (session?.user) {
-      fetchData()
-    } else {
+    if (session?.user) fetchData()
+    else {
       setTransactionsFT([])
       setTransactionsAP([])
       setTransactionsAR([])
@@ -141,6 +150,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         resAct,
         resCat,
         resCount,
+        resCc,
       ] = await Promise.all([
         supabase
           .from('v_financial_summary')
@@ -154,19 +164,20 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         supabase.from('v_expenses_by_category').select('*'),
         supabase
           .from('financial_transactions')
-          .select(`*, counterparties(name), financial_categories(name)`)
+          .select(`*, counterparties(name), financial_categories(name), cost_centers(name)`)
           .order('transaction_date', { ascending: false }),
         supabase
           .from('accounts_payable')
-          .select(`*, counterparties(name), financial_categories(name)`)
+          .select(`*, counterparties(name), financial_categories(name), cost_centers(name)`)
           .order('expected_date', { ascending: false }),
         supabase
           .from('accounts_receivable')
-          .select(`*, counterparties(name), financial_categories(name)`)
+          .select(`*, counterparties(name), financial_categories(name), cost_centers(name)`)
           .order('expected_date', { ascending: false }),
         supabase.from('activities').select('*').order('activity_date', { ascending: false }),
         supabase.from('financial_categories').select('*'),
         supabase.from('counterparties').select('*'),
+        supabase.from('cost_centers').select('*'),
       ])
 
       if (resFinSummary.data) setFinancialSummary(resFinSummary.data)
@@ -181,6 +192,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
       if (resCat.data) setCategories(resCat.data)
       if (resCount.data) setCounterparties(resCount.data)
+      if (resCc.data) setCostCenters(resCc.data)
     } catch (err) {
       console.error('Error fetching data:', err)
       toast({ title: 'Erro', description: 'Falha ao carregar dados.', variant: 'destructive' })
@@ -219,13 +231,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true)
     try {
       const { categoryId, counterpartyId } = await getOrCreateRefs(t.category, t.entity)
-
       let table = 'financial_transactions'
-      let payload: any = {
-        description: t.description,
-        amount: t.amount,
-        category_id: categoryId,
-      }
+      let payload: any = { description: t.description, amount: t.amount, category_id: categoryId }
 
       if (t.status === 'previsto') {
         if (t.type === 'entrada') {
@@ -249,7 +256,6 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
       const { error } = await supabase.from(table).insert(payload)
       if (error) throw error
-
       await fetchData()
     } catch (err) {
       console.error(err)
@@ -263,16 +269,13 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true)
     try {
       const { categoryId, counterpartyId } = await getOrCreateRefs(t.category, t.entity)
-
-      let table = 'financial_transactions'
-      if (rawSource === 'ap') table = 'accounts_payable'
-      if (rawSource === 'ar') table = 'accounts_receivable'
-
-      let payload: any = {
-        description: t.description,
-        amount: t.amount,
-        category_id: categoryId,
-      }
+      let table =
+        rawSource === 'ap'
+          ? 'accounts_payable'
+          : rawSource === 'ar'
+            ? 'accounts_receivable'
+            : 'financial_transactions'
+      let payload: any = { description: t.description, amount: t.amount, category_id: categoryId }
 
       if (rawSource === 'ap') {
         payload.expected_date = t.date
@@ -291,7 +294,6 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
       const { error } = await supabase.from(table).update(payload).eq('id', id)
       if (error) throw error
-
       await fetchData()
     } catch (err) {
       console.error(err)
@@ -302,46 +304,80 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   }
 
   const updateTransactionStatus = async (id: string, status: string, rawSource?: string) => {
-    let table = 'financial_transactions'
-    let col = 'nature'
-    let finalStatus = status
-
-    if (rawSource === 'ap') {
-      table = 'accounts_payable'
-      col = 'status'
-      finalStatus = status === 'realizado' ? 'pago' : 'previsto'
-    } else if (rawSource === 'ar') {
-      table = 'accounts_receivable'
-      col = 'status'
-      finalStatus = status === 'realizado' ? 'recebido' : 'previsto'
-    }
+    let table =
+      rawSource === 'ap'
+        ? 'accounts_payable'
+        : rawSource === 'ar'
+          ? 'accounts_receivable'
+          : 'financial_transactions'
+    let col = rawSource === 'ap' || rawSource === 'ar' ? 'status' : 'nature'
+    let finalStatus =
+      rawSource === 'ap'
+        ? status === 'realizado'
+          ? 'pago'
+          : 'previsto'
+        : rawSource === 'ar'
+          ? status === 'realizado'
+            ? 'recebido'
+            : 'previsto'
+          : status
 
     const { error } = await supabase
       .from(table)
       .update({ [col]: finalStatus })
       .eq('id', id)
-    if (!error) {
-      await fetchData()
-    } else {
+    if (!error) await fetchData()
+    else
       toast({
         title: 'Erro',
         description: 'Não foi possível atualizar o status.',
         variant: 'destructive',
       })
+  }
+
+  const addActivity = async (payload: Partial<Activity>) => {
+    setIsLoading(true)
+    try {
+      const { error } = await supabase.from('activities').insert(payload)
+      if (error) throw error
+      await fetchData()
+    } catch (err) {
+      console.error(err)
+      toast({ title: 'Erro', description: 'Falha ao adicionar atividade.', variant: 'destructive' })
+      throw err
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const updateActivity = async (id: string, partial: Partial<Activity>) => {
-    const { error } = await supabase.from('activities').update(partial).eq('id', id)
-    if (error) {
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar a atividade.',
-        variant: 'destructive',
-      })
-      return
+    setIsLoading(true)
+    try {
+      const { error } = await supabase.from('activities').update(partial).eq('id', id)
+      if (error) throw error
+      await fetchData()
+    } catch (err) {
+      console.error(err)
+      toast({ title: 'Erro', description: 'Falha ao atualizar atividade.', variant: 'destructive' })
+      throw err
+    } finally {
+      setIsLoading(false)
     }
-    setActivities((prev) => prev.map((a) => (a.id === id ? { ...a, ...partial } : a)))
+  }
+
+  const deleteActivity = async (id: string) => {
+    setIsLoading(true)
+    try {
+      const { error } = await supabase.from('activities').delete().eq('id', id)
+      if (error) throw error
+      await fetchData()
+    } catch (err) {
+      console.error(err)
+      toast({ title: 'Erro', description: 'Falha ao excluir atividade.', variant: 'destructive' })
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const value = {
@@ -356,12 +392,17 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     transactionsAP,
     transactionsAR,
     activities,
+    categories,
+    counterparties,
+    costCenters,
     toggleSkip,
     setCurrentDate,
     addTransaction,
     updateTransaction,
     updateTransactionStatus,
+    addActivity,
     updateActivity,
+    deleteActivity,
     fetchData,
   }
 
