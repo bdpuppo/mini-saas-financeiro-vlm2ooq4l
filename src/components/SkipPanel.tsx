@@ -1,12 +1,12 @@
 import { X, AlertTriangle, TrendingUp, CheckCircle } from 'lucide-react'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import useFinanceStore from '@/stores/useFinanceStore'
-import { formatCurrency, formatDate } from '@/utils/formatters'
+import { formatDate } from '@/utils/formatters'
 
 export function SkipPanel() {
-  const { isSkipOpen, toggleSkip, calculateRuptureDay } = useFinanceStore()
-  const rupture = calculateRuptureDay()
+  const { isSkipOpen, toggleSkip, cashBreakpoint } = useFinanceStore()
+  const ruptureDate = cashBreakpoint?.rupture_date
 
   return (
     <Sheet open={isSkipOpen} onOpenChange={toggleSkip}>
@@ -39,7 +39,7 @@ export function SkipPanel() {
                 <h4 className="font-semibold text-slate-900">Alerta de Fluxo de Caixa</h4>
                 <p className="text-sm text-slate-600 mt-1">
                   Identificamos um risco de saldo negativo para o dia{' '}
-                  <strong>{rupture.date ? formatDate(rupture.date) : 'N/A'}</strong>.
+                  <strong>{ruptureDate ? formatDate(ruptureDate) : 'N/A'}</strong>.
                 </p>
                 <div className="mt-3 bg-red-50 border border-red-100 p-3 rounded-md">
                   <p className="text-xs text-red-800 font-medium">Sugestão SKIP:</p>
