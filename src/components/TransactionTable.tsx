@@ -20,9 +20,10 @@ import { cn } from '@/lib/utils'
 interface Props {
   transactions: Transaction[]
   onEdit?: (tx: Transaction) => void
+  isLoading?: boolean
 }
 
-export function TransactionTable({ transactions, onEdit }: Props) {
+export function TransactionTable({ transactions, onEdit, isLoading }: Props) {
   const { updateTransactionStatus, toggleSkip } = useFinanceStore()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
@@ -39,7 +40,10 @@ export function TransactionTable({ transactions, onEdit }: Props) {
 
   const handleMarkAsRealizado = () => {
     if (selectedIds.size === 0) return
-    selectedIds.forEach((id) => updateTransactionStatus(id, 'realizado'))
+    selectedIds.forEach((id) => {
+      const tx = transactions.find((t) => t.id === id)
+      if (tx) updateTransactionStatus(id, 'realizado', tx.rawSource)
+    })
     setSelectedIds(new Set())
     toast({
       title: 'Atualização em Lote',
@@ -85,79 +89,94 @@ export function TransactionTable({ transactions, onEdit }: Props) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {transactions.map((tx) => (
-              <TableRow key={tx.id} className="hover:bg-slate-50/70 transition-colors group">
-                <TableCell>
-                  <Checkbox
-                    checked={selectedIds.has(tx.id)}
-                    onCheckedChange={(c) => handleSelectOne(tx.id, !!c)}
-                  />
-                </TableCell>
-                <TableCell className="font-medium text-slate-600">{formatDate(tx.date)}</TableCell>
-                <TableCell className="font-medium">{tx.entity}</TableCell>
-                <TableCell className="text-slate-600">{tx.description}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="font-normal">
-                    {tx.category}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <button
-                    onClick={() =>
-                      updateTransactionStatus(
-                        tx.id,
-                        tx.status === 'realizado' ? 'previsto' : 'realizado',
-                      )
-                    }
-                    className={cn(
-                      'px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors inline-flex items-center',
-                      tx.status === 'realizado'
-                        ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200'
-                        : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200',
-                    )}
-                  >
-                    {tx.status.toUpperCase()}
-                  </button>
-                </TableCell>
-                <TableCell
-                  className={cn(
-                    'text-right font-mono font-medium',
-                    tx.type === 'entrada' ? 'text-green-600' : 'text-red-600',
-                  )}
-                >
-                  {tx.type === 'entrada' ? '+' : '-'}
-                  {formatCurrency(Number(tx.amount))}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {Number(tx.amount) > 1000 && tx.status === 'previsto' && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-primary hover:text-yellow-600 hover:bg-yellow-50"
-                        onClick={toggleSkip}
-                        title="Sugestões do SKIP"
-                      >
-                        <Lightbulb className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-slate-500 hover:text-slate-900"
-                      onClick={() => onEdit?.(tx)}
-                      title="Editar lançamento"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {transactions.length === 0 && (
+            {isLoading && transactions.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-8 text-slate-500">
-                  Nenhum lançamento encontrado.
+                  Carregando lançamentos...
+                </TableCell>
+              </TableRow>
+            )}
+            {!isLoading &&
+              transactions.map((tx) => {
+                const isDone =
+                  tx.status === 'realizado' || tx.status === 'pago' || tx.status === 'recebido'
+                return (
+                  <TableRow key={tx.id} className="hover:bg-slate-50/70 transition-colors group">
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.has(tx.id)}
+                        onCheckedChange={(c) => handleSelectOne(tx.id, !!c)}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium text-slate-600">
+                      {formatDate(tx.date)}
+                    </TableCell>
+                    <TableCell className="font-medium">{tx.entity}</TableCell>
+                    <TableCell className="text-slate-600">{tx.description}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-normal">
+                        {tx.category}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        onClick={() =>
+                          updateTransactionStatus(
+                            tx.id,
+                            isDone ? 'previsto' : 'realizado',
+                            tx.rawSource,
+                          )
+                        }
+                        className={cn(
+                          'px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors inline-flex items-center',
+                          isDone
+                            ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200'
+                            : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200',
+                        )}
+                      >
+                        {tx.status.toUpperCase()}
+                      </button>
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        'text-right font-mono font-medium',
+                        tx.type === 'entrada' ? 'text-green-600' : 'text-red-600',
+                      )}
+                    >
+                      {tx.type === 'entrada' ? '+' : '-'}
+                      {formatCurrency(Number(tx.amount))}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {Number(tx.amount) > 1000 && !isDone && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-primary hover:text-yellow-600 hover:bg-yellow-50"
+                            onClick={toggleSkip}
+                            title="Sugestões do SKIP"
+                          >
+                            <Lightbulb className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-500 hover:text-slate-900"
+                          onClick={() => onEdit?.(tx)}
+                          title="Editar lançamento"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            {!isLoading && transactions.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center py-8 text-slate-500">
+                  Nenhum lançamento encontrado para os filtros selecionados.
                 </TableCell>
               </TableRow>
             )}

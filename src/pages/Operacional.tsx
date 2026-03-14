@@ -5,22 +5,23 @@ import { FinancePanel } from '@/components/operacional/FinancePanel'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
-import { CalendarIcon } from 'lucide-react'
+import { CalendarIcon, Loader2 } from 'lucide-react'
 
 export default function Operacional() {
-  const { transactions, activities, currentDate, setCurrentDate } = useFinanceStore()
+  const { transactionsAR, transactionsAP, activities, currentDate, setCurrentDate, isLoading } =
+    useFinanceStore()
 
   const todaysActivities = useMemo(
-    () => activities.filter((a) => a.date === currentDate),
+    () => activities.filter((a) => a.activity_date === currentDate),
     [activities, currentDate],
   )
   const todaysReceivables = useMemo(
-    () => transactions.filter((t) => t.date === currentDate && t.type === 'entrada'),
-    [transactions, currentDate],
+    () => transactionsAR.filter((t) => t.date === currentDate),
+    [transactionsAR, currentDate],
   )
   const todaysPayables = useMemo(
-    () => transactions.filter((t) => t.date === currentDate && t.type === 'saida'),
-    [transactions, currentDate],
+    () => transactionsAP.filter((t) => t.date === currentDate),
+    [transactionsAP, currentDate],
   )
 
   const sumIn = todaysReceivables.reduce((a, b) => a + Number(b.amount), 0)
@@ -28,6 +29,14 @@ export default function Operacional() {
 
   const weekDays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
   const weekDayName = weekDays[new Date(currentDate + 'T00:00:00').getDay()]
+
+  if (isLoading && activities.length === 0 && transactionsAR.length === 0) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">

@@ -22,7 +22,7 @@ const getWeekOfMonth = (dateStr: string) => {
 
 export default function Lancamentos() {
   const location = useLocation()
-  const { transactions } = useFinanceStore()
+  const { transactionsFT, transactionsAP, transactionsAR, isLoading } = useFinanceStore()
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [editTx, setEditTx] = useState<Transaction | null>(null)
 
@@ -38,18 +38,40 @@ export default function Lancamentos() {
       : 'all'
 
   const filteredTransactions = useMemo(() => {
-    let txs = transactions
-    if (filterType !== 'all') txs = txs.filter((t) => t.type === filterType)
+    let txs: Transaction[] = []
+    if (filterType === 'all') txs = transactionsFT
+    else if (filterType === 'entrada') txs = transactionsAR
+    else if (filterType === 'saida') txs = transactionsAP
+
     if (catFilter !== 'all') txs = txs.filter((t) => t.category === catFilter)
     if (entFilter) txs = txs.filter((t) => t.entity.toLowerCase().includes(entFilter.toLowerCase()))
-    if (statusFilter !== 'all') txs = txs.filter((t) => t.status === statusFilter)
+
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'realizado') {
+        txs = txs.filter(
+          (t) => t.status === 'realizado' || t.status === 'pago' || t.status === 'recebido',
+        )
+      } else if (statusFilter === 'previsto') {
+        txs = txs.filter((t) => t.status === 'previsto')
+      }
+    }
+
     if (weekFilter !== 'all') txs = txs.filter((t) => getWeekOfMonth(t.date) === weekFilter)
 
     return [...txs].sort((a, b) => b.date.localeCompare(a.date))
-  }, [transactions, filterType, catFilter, entFilter, statusFilter, weekFilter])
+  }, [
+    transactionsFT,
+    transactionsAR,
+    transactionsAP,
+    filterType,
+    catFilter,
+    entFilter,
+    statusFilter,
+    weekFilter,
+  ])
 
   const titles = {
-    all: 'Todos Lançamentos',
+    all: 'Lançamentos (Histórico)',
     entrada: 'Contas a Receber',
     saida: 'Contas a Pagar',
   }
@@ -63,7 +85,11 @@ export default function Lancamentos() {
             Gerencie suas transações e acompanhe os status.
           </p>
         </div>
-        <Button onClick={() => setIsDrawerOpen(true)} className="bg-primary shadow-sm">
+        <Button
+          onClick={() => setIsDrawerOpen(true)}
+          className="bg-primary shadow-sm"
+          disabled={isLoading}
+        >
           <Plus className="h-4 w-4 mr-2" />
           Novo Lançamento
         </Button>
@@ -111,7 +137,7 @@ export default function Lancamentos() {
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="previsto">Previsto</SelectItem>
-              <SelectItem value="realizado">Realizado</SelectItem>
+              <SelectItem value="realizado">Realizado / Pago</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -135,7 +161,11 @@ export default function Lancamentos() {
         </div>
       </div>
 
-      <TransactionTable transactions={filteredTransactions} onEdit={setEditTx} />
+      <TransactionTable
+        transactions={filteredTransactions}
+        onEdit={setEditTx}
+        isLoading={isLoading}
+      />
 
       <TransactionFormDrawer
         open={isDrawerOpen || !!editTx}

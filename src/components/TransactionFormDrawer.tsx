@@ -17,11 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import useFinanceStore, {
-  TransactionType,
-  TransactionStatus,
-  Transaction,
-} from '@/stores/useFinanceStore'
+import useFinanceStore, { TransactionType, Transaction } from '@/stores/useFinanceStore'
 import { toast } from '@/hooks/use-toast'
 
 interface Props {
@@ -38,9 +34,10 @@ export function TransactionFormDrawer({
   editItem,
 }: Props) {
   const { addTransaction, updateTransaction } = useFinanceStore()
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [type, setType] = useState<TransactionType>(defaultType === 'all' ? 'saida' : defaultType)
-  const [status, setStatus] = useState<TransactionStatus>('previsto')
+  const [status, setStatus] = useState('previsto')
   const [date, setDate] = useState('')
   const [amount, setAmount] = useState('')
   const [entity, setEntity] = useState('')
@@ -50,7 +47,9 @@ export function TransactionFormDrawer({
   useEffect(() => {
     if (editItem) {
       setType(editItem.type)
-      setStatus(editItem.status)
+      setStatus(
+        editItem.status === 'recebido' || editItem.status === 'pago' ? 'realizado' : 'previsto',
+      )
       setDate(editItem.date)
       setAmount(editItem.amount.toString())
       setEntity(editItem.entity)
@@ -79,6 +78,7 @@ export function TransactionFormDrawer({
       return
     }
 
+    setIsSubmitting(true)
     const payload = {
       type,
       status,
@@ -89,15 +89,24 @@ export function TransactionFormDrawer({
       category,
     }
 
-    if (editItem) {
-      await updateTransaction(editItem.id, payload)
-      toast({ title: 'Sucesso', description: 'Lançamento atualizado com sucesso!' })
-    } else {
-      await addTransaction(payload)
-      toast({ title: 'Sucesso', description: 'Lançamento adicionado com sucesso!' })
+    try {
+      if (editItem) {
+        await updateTransaction(editItem.id, payload, editItem.rawSource)
+        toast({ title: 'Sucesso', description: 'Lançamento atualizado com sucesso!' })
+      } else {
+        await addTransaction(payload)
+        toast({ title: 'Sucesso', description: 'Lançamento adicionado com sucesso!' })
+      }
+      onOpenChange(false)
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Falha ao salvar. Verifique sua conexão.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSubmitting(false)
     }
-
-    onOpenChange(false)
   }
 
   return (
@@ -116,7 +125,11 @@ export function TransactionFormDrawer({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Tipo</Label>
-              <Select value={type} onValueChange={(val) => setType(val as TransactionType)}>
+              <Select
+                value={type}
+                onValueChange={(val) => setType(val as TransactionType)}
+                disabled={!!editItem}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
@@ -128,7 +141,7 @@ export function TransactionFormDrawer({
             </div>
             <div className="space-y-1.5">
               <Label>Status</Label>
-              <Select value={status} onValueChange={(val) => setStatus(val as TransactionStatus)}>
+              <Select value={status} onValueChange={(val) => setStatus(val)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
@@ -179,26 +192,21 @@ export function TransactionFormDrawer({
 
           <div className="space-y-1.5">
             <Label>Categoria</Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Impostos">Impostos</SelectItem>
-                <SelectItem value="Fornecedor">Fornecedor</SelectItem>
-                <SelectItem value="RH">RH / Folha</SelectItem>
-                <SelectItem value="Frete">Frete</SelectItem>
-                <SelectItem value="Vendas">Vendas</SelectItem>
-                <SelectItem value="Outros">Outros</SelectItem>
-              </SelectContent>
-            </Select>
+            <Input
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="Nome da Categoria"
+              required
+            />
           </div>
 
           <SheetFooter className="mt-8">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit">Salvar Lançamento</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Salvando...' : 'Salvar Lançamento'}
+            </Button>
           </SheetFooter>
         </form>
       </SheetContent>
