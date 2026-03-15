@@ -585,16 +585,6 @@ export type Database = {
           risk_level: string | null
           rupture_date: string | null
         }
-        Insert: {
-          projected_balance?: number | null
-          risk_level?: never
-          rupture_date?: string | null
-        }
-        Update: {
-          projected_balance?: number | null
-          risk_level?: never
-          rupture_date?: string | null
-        }
         Relationships: []
       }
       v_expenses_by_category: {

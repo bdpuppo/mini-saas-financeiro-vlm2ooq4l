@@ -18,6 +18,8 @@ export type ActivityStatus = 'OK' | 'Andamento' | 'Aguardando' | 'Parado'
 export interface Transaction {
   id: string
   date: string
+  paid_date?: string | null
+  received_date?: string | null
   type: TransactionType
   status: string
   amount: number
@@ -83,6 +85,7 @@ const mapFT = (t: any): Transaction => ({
 const mapAP = (t: any): Transaction => ({
   id: t.id,
   date: t.expected_date,
+  paid_date: t.paid_date,
   type: 'saida',
   status: t.status,
   amount: Number(t.amount),
@@ -96,6 +99,7 @@ const mapAP = (t: any): Transaction => ({
 const mapAR = (t: any): Transaction => ({
   id: t.id,
   date: t.expected_date,
+  received_date: t.received_date,
   type: 'entrada',
   status: t.status,
   amount: Number(t.amount),

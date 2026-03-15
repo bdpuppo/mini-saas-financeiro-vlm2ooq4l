@@ -45,10 +45,13 @@ export default function Index() {
     isLoading,
     financialSummary,
     cashBreakpoint,
-    activitySummary,
+    activities,
     transactionsFT,
+    transactionsAP,
+    transactionsAR,
     cashflowSnapshots,
   } = useFinanceStore()
+
   const [selectedMonth, setSelectedMonth] = useState<string>('current')
 
   const availableMonths = useMemo(() => {
@@ -81,28 +84,84 @@ export default function Index() {
   }, [financialSummary, activeMonth])
 
   const cardData = useMemo(() => {
-    if (!filteredSummary || filteredSummary.length === 0) return {}
-    return filteredSummary.reduce(
-      (acc, curr) => ({
-        entrada_realizada: (acc.entrada_realizada || 0) + (curr.entrada_realizada || 0),
-        entrada_prevista: (acc.entrada_prevista || 0) + (curr.entrada_prevista || 0),
-        saida_realizada: (acc.saida_realizada || 0) + (curr.saida_realizada || 0),
-        saida_prevista: (acc.saida_prevista || 0) + (curr.saida_prevista || 0),
-      }),
-      {} as any,
-    )
-  }, [filteredSummary])
+    let ft = transactionsFT
+    let ar = transactionsAR
+    let ap = transactionsAP
+
+    if (activeMonth) {
+      ft = ft.filter((t) => t.date?.startsWith(activeMonth))
+      ar = ar.filter((t) => t.date?.startsWith(activeMonth))
+      ap = ap.filter((t) => t.date?.startsWith(activeMonth))
+    }
+
+    let entrada_realizada = 0
+    let saida_realizada = 0
+
+    ft.forEach((t) => {
+      if (t.status?.toLowerCase() === 'realizado') {
+        if (t.type?.toLowerCase() === 'entrada') entrada_realizada += t.amount
+        else if (t.type?.toLowerCase() === 'saida') saida_realizada += t.amount
+      }
+    })
+
+    let entrada_prevista = 0
+    let saida_prevista = 0
+
+    ar.forEach((t) => {
+      if (t.status?.toLowerCase() !== 'cancelado') entrada_prevista += t.amount
+    })
+
+    ap.forEach((t) => {
+      if (t.status?.toLowerCase() !== 'cancelado') saida_prevista += t.amount
+    })
+
+    return { entrada_realizada, entrada_prevista, saida_realizada, saida_prevista }
+  }, [transactionsFT, transactionsAR, transactionsAP, activeMonth])
 
   const saldoAtual = useMemo(() => {
     return transactionsFT
-      .filter((t) => t.nature === 'realizado')
-      .reduce((sum, t) => sum + (t.type === 'entrada' ? t.amount : -t.amount), 0)
+      .filter((t) => t.status?.toLowerCase() === 'realizado')
+      .reduce((sum, t) => sum + (t.type?.toLowerCase() === 'entrada' ? t.amount : -t.amount), 0)
   }, [transactionsFT])
 
-  const entradas = (cardData.entrada_realizada || 0) + (cardData.entrada_prevista || 0)
-  const saidas = (cardData.saida_realizada || 0) + (cardData.saida_prevista || 0)
+  const entradas = cardData.entrada_realizada + cardData.entrada_prevista
+  const saidas = cardData.saida_realizada + cardData.saida_prevista
 
-  const actSummary = activitySummary[0] || {}
+  const actSummary = useMemo(() => {
+    let filtered = activities
+    if (activeMonth) {
+      filtered = activities.filter((a) => a.activity_date?.startsWith(activeMonth))
+    }
+
+    const total = filtered.length
+    if (total === 0)
+      return {
+        percentual_ok: 0,
+        percentual_em_andamento: 0,
+        percentual_parado: 0,
+        percentual_aguardando: 0,
+      }
+
+    let ok = 0,
+      andamento = 0,
+      aguardando = 0,
+      parado = 0
+    filtered.forEach((a) => {
+      const s = (a.status || '').toLowerCase()
+      if (s === 'ok') ok++
+      else if (s === 'andamento') andamento++
+      else if (s === 'aguardando') aguardando++
+      else if (s === 'parado') parado++
+    })
+
+    return {
+      percentual_ok: Math.round((ok / total) * 100),
+      percentual_em_andamento: Math.round((andamento / total) * 100),
+      percentual_aguardando: Math.round((aguardando / total) * 100),
+      percentual_parado: Math.round((parado / total) * 100),
+    }
+  }, [activities, activeMonth])
+
   const rupturaData = cashBreakpoint?.rupture_date
   const rupturaRisco = cashBreakpoint?.risk_level || 'Seguro'
 
@@ -141,8 +200,10 @@ export default function Index() {
 
   const expensesData = useMemo(() => {
     const filteredTxs = activeMonth
-      ? transactionsFT.filter((t) => t.date.startsWith(activeMonth) && t.type === 'saida')
-      : transactionsFT.filter((t) => t.type === 'saida')
+      ? transactionsFT.filter(
+          (t) => t.date.startsWith(activeMonth) && t.type?.toLowerCase() === 'saida',
+        )
+      : transactionsFT.filter((t) => t.type?.toLowerCase() === 'saida')
 
     const agg = filteredTxs.reduce(
       (acc, t) => {
@@ -319,14 +380,14 @@ export default function Index() {
                       dataKey="entrada_realizada"
                       stroke="var(--color-entrada_realizada)"
                       strokeWidth={3}
-                      dot={{ r: 4 }}
+                      dot={false}
                     />
                     <Line
                       type="monotone"
                       dataKey="saida_realizada"
                       stroke="var(--color-saida_realizada)"
                       strokeWidth={3}
-                      dot={{ r: 4 }}
+                      dot={false}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -380,7 +441,7 @@ export default function Index() {
             <CardTitle>Status de Atividades</CardTitle>
           </CardHeader>
           <CardContent>
-            {activitySummary.length > 0 ? (
+            {activities.length > 0 ? (
               <div className="space-y-6 mt-4">
                 <div>
                   <div className="flex justify-between text-sm mb-2">
@@ -410,17 +471,14 @@ export default function Index() {
                   <div className="flex justify-between text-sm mb-2">
                     <span className="font-semibold text-slate-700">Paradas / Aguardando</span>
                     <span className="font-bold text-yellow-600">
-                      {100 -
-                        (actSummary.percentual_ok || 0) -
-                        (actSummary.percentual_em_andamento || 0)}
+                      {(actSummary.percentual_parado || 0) +
+                        (actSummary.percentual_aguardando || 0)}
                       %
                     </span>
                   </div>
                   <Progress
                     value={
-                      100 -
-                      (actSummary.percentual_ok || 0) -
-                      (actSummary.percentual_em_andamento || 0)
+                      (actSummary.percentual_parado || 0) + (actSummary.percentual_aguardando || 0)
                     }
                     className="h-3 [&>div]:bg-yellow-500"
                   />

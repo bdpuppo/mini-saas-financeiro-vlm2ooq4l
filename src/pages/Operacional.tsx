@@ -24,22 +24,35 @@ export default function Operacional() {
     [activities, currentDate],
   )
   const todaysReceivables = useMemo(
-    () => transactionsAR.filter((t) => t.date === currentDate && t.status !== 'cancelado'),
+    () =>
+      transactionsAR.filter(
+        (t) =>
+          (t.date === currentDate || t.received_date === currentDate) &&
+          t.status?.toLowerCase() !== 'cancelado',
+      ),
     [transactionsAR, currentDate],
   )
   const todaysPayables = useMemo(
-    () => transactionsAP.filter((t) => t.date === currentDate && t.status !== 'cancelado'),
+    () =>
+      transactionsAP.filter(
+        (t) =>
+          (t.date === currentDate || t.paid_date === currentDate) &&
+          t.status?.toLowerCase() !== 'cancelado',
+      ),
     [transactionsAP, currentDate],
   )
 
   const saldoRealizado = useMemo(() => {
     return transactionsFT
-      .filter((t) => t.nature === 'realizado')
-      .reduce((acc, t) => acc + (t.type === 'entrada' ? t.amount : -t.amount), 0)
+      .filter((t) => t.status?.toLowerCase() === 'realizado')
+      .reduce((acc, t) => acc + (t.type?.toLowerCase() === 'entrada' ? t.amount : -t.amount), 0)
   }, [transactionsFT])
 
   const saldoPrevisto = useMemo(() => {
-    return transactionsFT.reduce((acc, t) => acc + (t.type === 'entrada' ? t.amount : -t.amount), 0)
+    return transactionsFT.reduce(
+      (acc, t) => acc + (t.type?.toLowerCase() === 'entrada' ? t.amount : -t.amount),
+      0,
+    )
   }, [transactionsFT])
 
   const sumIn = todaysReceivables.reduce((a, b) => a + Number(b.amount), 0)
