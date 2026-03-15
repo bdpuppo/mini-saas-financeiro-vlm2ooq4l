@@ -1,6 +1,19 @@
-import { useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from '@/components/ui/chart'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -18,23 +31,73 @@ import { Wallet, TrendingUp, AlertOctagon, TrendingDown } from 'lucide-react'
 import useFinanceStore from '@/stores/useFinanceStore'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
+const formatMonth = (yyyy_mm: string) => {
+  const [y, m] = yyy_mm.split('-')
+  const d = new Date(Number(y), Number(m) - 1)
+  const name = d.toLocaleDateString('pt-BR', { month: 'long' })
+  return name.charAt(0).toUpperCase() + name.slice(1) + '/' + y
+}
+
 export default function Index() {
-  const { isLoading, financialSummary, cashBreakpoint, activitySummary, expensesByCategory } =
+  const { isLoading, financialSummary, cashBreakpoint, activitySummary, transactionsFT } =
     useFinanceStore()
+  const [selectedMonth, setSelectedMonth] = useState<string>('current')
 
-  const cardData = financialSummary[0] || {}
-  const actSummary = activitySummary[0] || {}
+  const availableMonths = useMemo(() => {
+    const months = new Set<string>()
+    financialSummary.forEach((s) => {
+      if (s.reference_date) months.add(s.reference_date.substring(0, 7))
+    })
+    transactionsFT.forEach((t) => {
+      if (t.date) months.add(t.date.substring(0, 7))
+    })
+    return Array.from(months).sort().reverse()
+  }, [financialSummary, transactionsFT])
 
-  const saldoAtual = cardData.saldo_transacoes || 0
+  const activeMonth = useMemo(() => {
+    if (selectedMonth === 'all') return null
+    if (selectedMonth === 'current') {
+      const current = new Date().toISOString().substring(0, 7)
+      if (availableMonths.includes(current)) return current
+      return availableMonths.length > 0 ? availableMonths[0] : null
+    }
+    return selectedMonth
+  }, [selectedMonth, availableMonths])
+
+  const filteredSummary = useMemo(() => {
+    if (!activeMonth) return financialSummary
+    return financialSummary.filter((s) => s.reference_date?.startsWith(activeMonth))
+  }, [financialSummary, activeMonth])
+
+  const cardData = useMemo(() => {
+    if (!filteredSummary || filteredSummary.length === 0) return {}
+    return filteredSummary.reduce(
+      (acc, curr) => ({
+        entrada_realizada: (acc.entrada_realizada || 0) + (curr.entrada_realizada || 0),
+        entrada_prevista: (acc.entrada_prevista || 0) + (curr.entrada_prevista || 0),
+        saida_realizada: (acc.saida_realizada || 0) + (curr.saida_realizada || 0),
+        saida_prevista: (acc.saida_prevista || 0) + (curr.saida_prevista || 0),
+      }),
+      {} as any,
+    )
+  }, [filteredSummary])
+
+  const saldoAtual = useMemo(() => {
+    return transactionsFT
+      .filter((t) => t.nature === 'realizado')
+      .reduce((sum, t) => sum + (t.type === 'entrada' ? t.amount : -t.amount), 0)
+  }, [transactionsFT])
+
   const entradas = (cardData.entrada_realizada || 0) + (cardData.entrada_prevista || 0)
   const saidas = (cardData.saida_realizada || 0) + (cardData.saida_prevista || 0)
 
+  const actSummary = activitySummary[0] || {}
   const rupturaData = cashBreakpoint?.rupture_date
   const rupturaRisco = cashBreakpoint?.risk_level || 'Seguro'
 
   const cashflowData = useMemo(() => {
-    if (financialSummary.length > 0) {
-      return [...financialSummary].reverse().map((s) => ({
+    if (filteredSummary.length > 0) {
+      return [...filteredSummary].reverse().map((s) => ({
         date: s.reference_date
           ? s.reference_date.substring(8, 10) + '/' + s.reference_date.substring(5, 7)
           : '',
@@ -45,15 +108,29 @@ export default function Index() {
       }))
     }
     return []
-  }, [financialSummary])
+  }, [filteredSummary])
 
   const expensesData = useMemo(() => {
-    return expensesByCategory.map((e) => ({
-      name: e.category_name || 'Outros',
-      value: Number(e.total_expense || 0),
-      fill: e.category_color || 'hsl(var(--primary))',
-    }))
-  }, [expensesByCategory])
+    const filteredTxs = activeMonth
+      ? transactionsFT.filter((t) => t.date.startsWith(activeMonth) && t.type === 'saida')
+      : transactionsFT.filter((t) => t.type === 'saida')
+
+    const agg = filteredTxs.reduce(
+      (acc, t) => {
+        acc[t.category] = (acc[t.category] || 0) + t.amount
+        return acc
+      },
+      {} as Record<string, number>,
+    )
+
+    return Object.entries(agg)
+      .map(([name, value], i) => ({
+        name: name || 'Outros',
+        value,
+        fill: `hsl(var(--chart-${(i % 5) + 1}))`,
+      }))
+      .sort((a, b) => b.value - a.value)
+  }, [transactionsFT, activeMonth])
 
   if (isLoading && financialSummary.length === 0) {
     return (
@@ -81,39 +158,59 @@ export default function Index() {
             Visão gerencial do fluxo de caixa e inteligência de dados.
           </p>
         </div>
+        <div className="w-full md:w-[220px]">
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+            <SelectTrigger className="w-full bg-white">
+              <SelectValue placeholder="Selecione o período" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="current">Mês Atual</SelectItem>
+              <SelectItem value="all">Período Completo</SelectItem>
+              {availableMonths.map((m) => (
+                <SelectItem key={m} value={m}>
+                  {formatMonth(m)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="shadow-subtle hover:shadow-elevation transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Saldo Atual</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-500">
+              Saldo Global Realizado
+            </CardTitle>
             <Wallet className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(saldoAtual)}</div>
-            <p className="text-xs text-slate-500 mt-1">Conta Corrente</p>
+            <p className="text-xs text-slate-500 mt-1">Conta Corrente Total</p>
           </CardContent>
         </Card>
 
         <Card className="shadow-subtle hover:shadow-elevation transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Entradas Previstas</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-500">
+              Entradas do Período
+            </CardTitle>
             <TrendingUp className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{formatCurrency(entradas)}</div>
-            <p className="text-xs text-slate-500 mt-1">Acumulado do Mês</p>
+            <p className="text-xs text-slate-500 mt-1">Realizado + Previsto</p>
           </CardContent>
         </Card>
 
         <Card className="shadow-subtle hover:shadow-elevation transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Saídas Previstas</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-500">Saídas do Período</CardTitle>
             <TrendingDown className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">{formatCurrency(saidas)}</div>
-            <p className="text-xs text-slate-500 mt-1">Acumulado do Mês</p>
+            <p className="text-xs text-slate-500 mt-1">Realizado + Previsto</p>
           </CardContent>
         </Card>
 
@@ -144,18 +241,23 @@ export default function Index() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="shadow-subtle">
           <CardHeader>
-            <CardTitle>Fluxo de Caixa</CardTitle>
+            <CardTitle>Fluxo de Caixa (Período Selecionado)</CardTitle>
           </CardHeader>
           <CardContent className="h-[300px]">
             {cashflowData.length > 0 ? (
               <ChartContainer
                 config={{
-                  entrada_realizada: { label: 'Entradas', color: 'hsl(var(--primary))' },
-                  saida_realizada: { label: 'Saídas', color: '#dc2626' },
+                  entrada_realizada: { label: 'Entradas (Realizado)', color: '#22c55e' },
+                  entrada_prevista: { label: 'Entradas (Previsto)', color: '#22c55e' },
+                  saida_realizada: { label: 'Saídas (Realizado)', color: '#ef4444' },
+                  saida_prevista: { label: 'Saídas (Previsto)', color: '#ef4444' },
                 }}
               >
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={cashflowData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                  <LineChart
+                    data={cashflowData}
+                    margin={{ top: 5, right: 20, bottom: 20, left: 0 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis
@@ -165,39 +267,37 @@ export default function Index() {
                       tickFormatter={(val) => `R$ ${val / 1000}k`}
                     />
                     <ChartTooltip content={<ChartTooltipContent />} />
+                    <ChartLegend content={<ChartLegendContent />} />
+
                     <Line
                       type="monotone"
                       dataKey="entrada_prevista"
-                      stroke="#86efac"
+                      stroke="var(--color-entrada_prevista)"
                       strokeWidth={2}
-                      dot={false}
                       strokeDasharray="5 5"
-                      name="Entradas (Prev)"
+                      dot={false}
                     />
                     <Line
                       type="monotone"
                       dataKey="saida_prevista"
-                      stroke="#fca5a5"
+                      stroke="var(--color-saida_prevista)"
                       strokeWidth={2}
-                      dot={false}
                       strokeDasharray="5 5"
-                      name="Saídas (Prev)"
+                      dot={false}
                     />
                     <Line
                       type="monotone"
                       dataKey="entrada_realizada"
-                      stroke="hsl(var(--primary))"
+                      stroke="var(--color-entrada_realizada)"
                       strokeWidth={3}
                       dot={{ r: 4 }}
-                      name="Entradas (Real)"
                     />
                     <Line
                       type="monotone"
                       dataKey="saida_realizada"
-                      stroke="#dc2626"
+                      stroke="var(--color-saida_realizada)"
                       strokeWidth={3}
                       dot={{ r: 4 }}
-                      name="Saídas (Real)"
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -212,7 +312,7 @@ export default function Index() {
 
         <Card className="shadow-subtle">
           <CardHeader>
-            <CardTitle>Despesas por Categoria</CardTitle>
+            <CardTitle>Despesas por Categoria (Período Selecionado)</CardTitle>
           </CardHeader>
           <CardContent className="h-[300px]">
             {expensesData.length > 0 ? (

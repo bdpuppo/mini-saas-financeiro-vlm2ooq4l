@@ -4,9 +4,16 @@ import { formatCurrency } from '@/utils/formatters'
 interface FinancePanelProps {
   receivables: Transaction[]
   payables: Transaction[]
+  saldoRealizado: number
+  saldoPrevisto: number
 }
 
-export function FinancePanel({ receivables, payables }: FinancePanelProps) {
+export function FinancePanel({
+  receivables,
+  payables,
+  saldoRealizado,
+  saldoPrevisto,
+}: FinancePanelProps) {
   const sumReceivables = receivables.reduce((sum, t) => sum + t.amount, 0)
   const sumPayables = payables.reduce((sum, t) => sum + t.amount, 0)
 
@@ -17,19 +24,23 @@ export function FinancePanel({ receivables, payables }: FinancePanelProps) {
         <thead>
           <tr className="bg-slate-200">
             <th className="border border-slate-800 p-1.5 w-1/3"></th>
-            <th className="border border-slate-800 p-1.5 w-1/3">Previsto</th>
-            <th className="border border-slate-800 p-1.5 w-1/3">Realizado</th>
+            <th className="border border-slate-800 p-1.5 w-1/3">Previsto (Global)</th>
+            <th className="border border-slate-800 p-1.5 w-1/3">Realizado (Global)</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td className="border border-slate-800 p-1.5 font-bold">Saldo em Conta</td>
-            <td className="border border-slate-800 p-1.5 text-center">55,66</td>
-            <td className="border border-slate-800 p-1.5 text-center">175,66</td>
+            <td className="border border-slate-800 p-1.5 text-center">
+              {formatCurrency(saldoPrevisto)}
+            </td>
+            <td className="border border-slate-800 p-1.5 text-center">
+              {formatCurrency(saldoRealizado)}
+            </td>
           </tr>
           <tr>
             <td className="border border-slate-800 p-1.5 font-bold text-blue-800">
-              Valores a Receber
+              Valores a Receber Hoje
             </td>
             <td className="border border-slate-800 p-1.5 text-center">
               {formatCurrency(sumReceivables)}
@@ -40,7 +51,7 @@ export function FinancePanel({ receivables, payables }: FinancePanelProps) {
           </tr>
           <tr>
             <td className="border border-slate-800 p-1.5 font-bold text-red-800">
-              Valores a Pagar
+              Valores a Pagar Hoje
             </td>
             <td className="border border-slate-800 p-1.5 text-center">
               {formatCurrency(sumPayables)}
@@ -61,7 +72,7 @@ export function FinancePanel({ receivables, payables }: FinancePanelProps) {
           <thead className="bg-slate-100 text-xs">
             <tr>
               <th className="border-r border-b border-slate-300 p-1.5 w-1/4">Cliente</th>
-              <th className="border-r border-b border-slate-300 p-1.5 w-1/12">C</th>
+              <th className="border-r border-b border-slate-300 p-1.5 w-1/12">Cat</th>
               <th className="border-r border-b border-slate-300 p-1.5 flex-1">Descrição</th>
               <th className="border-r border-b border-slate-300 p-1.5 w-1/6">Status</th>
               <th className="border-b border-slate-300 p-1.5 w-1/5">Valor</th>
@@ -71,10 +82,14 @@ export function FinancePanel({ receivables, payables }: FinancePanelProps) {
             {receivables.map((t) => (
               <tr key={t.id} className="hover:bg-slate-50">
                 <td className="border-r border-b border-slate-200 p-1.5">{t.entity}</td>
-                <td className="border-r border-b border-slate-200 p-1.5"></td>
-                <td className="border-r border-b border-slate-200 p-1.5">{t.description}</td>
+                <td className="border-r border-b border-slate-200 p-1.5">
+                  {t.category !== 'Sem Categoria' ? t.category.substring(0, 3) : ''}
+                </td>
+                <td className="border-r border-b border-slate-200 p-1.5 text-left">
+                  {t.description}
+                </td>
                 <td className="border-r border-b border-slate-200 p-1.5 capitalize">{t.status}</td>
-                <td className="border-b border-slate-200 p-1.5 font-mono">
+                <td className="border-b border-slate-200 p-1.5 font-mono text-right pr-2">
                   {formatCurrency(t.amount)}
                 </td>
               </tr>
@@ -82,7 +97,7 @@ export function FinancePanel({ receivables, payables }: FinancePanelProps) {
             {receivables.length === 0 && (
               <tr>
                 <td colSpan={5} className="p-4 text-slate-400">
-                  Nenhum recebível
+                  Nenhum recebível previsto para hoje.
                 </td>
               </tr>
             )}
@@ -99,7 +114,7 @@ export function FinancePanel({ receivables, payables }: FinancePanelProps) {
           <thead className="bg-slate-100 text-xs">
             <tr>
               <th className="border-r border-b border-slate-300 p-1.5 w-1/4">Favorecido</th>
-              <th className="border-r border-b border-slate-300 p-1.5 w-1/12">C</th>
+              <th className="border-r border-b border-slate-300 p-1.5 w-1/12">Cat</th>
               <th className="border-r border-b border-slate-300 p-1.5 flex-1">Descrição</th>
               <th className="border-r border-b border-slate-300 p-1.5 w-1/6">Status</th>
               <th className="border-b border-slate-300 p-1.5 w-1/5">Valor</th>
@@ -109,14 +124,25 @@ export function FinancePanel({ receivables, payables }: FinancePanelProps) {
             {payables.map((t) => (
               <tr key={t.id} className="hover:bg-slate-50">
                 <td className="border-r border-b border-slate-200 p-1.5">{t.entity}</td>
-                <td className="border-r border-b border-slate-200 p-1.5">{t.category}</td>
-                <td className="border-r border-b border-slate-200 p-1.5">{t.description}</td>
+                <td className="border-r border-b border-slate-200 p-1.5">
+                  {t.category !== 'Sem Categoria' ? t.category.substring(0, 3) : ''}
+                </td>
+                <td className="border-r border-b border-slate-200 p-1.5 text-left">
+                  {t.description}
+                </td>
                 <td className="border-r border-b border-slate-200 p-1.5 capitalize">{t.status}</td>
-                <td className="border-b border-slate-200 p-1.5 font-mono">
+                <td className="border-b border-slate-200 p-1.5 font-mono text-right pr-2">
                   {formatCurrency(t.amount)}
                 </td>
               </tr>
             ))}
+            {payables.length === 0 && (
+              <tr>
+                <td colSpan={5} className="p-4 text-slate-400">
+                  Nenhuma conta a pagar prevista para hoje.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

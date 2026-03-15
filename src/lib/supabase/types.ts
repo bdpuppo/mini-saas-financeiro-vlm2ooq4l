@@ -585,6 +585,16 @@ export type Database = {
           risk_level: string | null
           rupture_date: string | null
         }
+        Insert: {
+          projected_balance?: number | null
+          risk_level?: never
+          rupture_date?: string | null
+        }
+        Update: {
+          projected_balance?: number | null
+          risk_level?: never
+          rupture_date?: string | null
+        }
         Relationships: []
       }
       v_expenses_by_category: {
@@ -973,66 +983,92 @@ export const Constants = {
 
 // --- ROW LEVEL SECURITY POLICIES ---
 // Table: accounts_payable
+//   Policy "Allow read for all authenticated" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
 //   Policy "accounts_payable_read_authenticated" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role, 'diretoria'::app_role]))
 //   Policy "accounts_payable_write_financeiro_admin" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 //     WITH CHECK: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 // Table: accounts_receivable
+//   Policy "Allow read for all authenticated" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
 //   Policy "accounts_receivable_read_authenticated" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role, 'diretoria'::app_role]))
 //   Policy "accounts_receivable_write_financeiro_admin" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 //     WITH CHECK: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 // Table: activities
+//   Policy "Allow read for all authenticated" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
 //   Policy "activities_read_authenticated" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role, 'diretoria'::app_role]))
 //   Policy "activities_write_financeiro_admin" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 //     WITH CHECK: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 // Table: cashflow_snapshots
+//   Policy "Allow read for all authenticated" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
 //   Policy "cashflow_snapshots_read_authenticated" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role, 'diretoria'::app_role]))
 //   Policy "cashflow_snapshots_write_financeiro_admin" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 //     WITH CHECK: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 // Table: cost_centers
+//   Policy "Allow read for all authenticated" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
 //   Policy "cost_centers_read_authenticated" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role, 'diretoria'::app_role]))
 //   Policy "cost_centers_write_financeiro_admin" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 //     WITH CHECK: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 // Table: counterparties
+//   Policy "Allow read for all authenticated" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
 //   Policy "counterparties_read_authenticated" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role, 'diretoria'::app_role]))
 //   Policy "counterparties_write_financeiro_admin" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 //     WITH CHECK: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 // Table: dashboard_metrics
+//   Policy "Allow read for all authenticated" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
 //   Policy "dashboard_metrics_read_authenticated" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role, 'diretoria'::app_role]))
 //   Policy "dashboard_metrics_write_financeiro_admin" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 //     WITH CHECK: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 // Table: financial_alerts
+//   Policy "Allow read for all authenticated" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
 //   Policy "financial_alerts_read_authenticated" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role, 'diretoria'::app_role]))
 //   Policy "financial_alerts_write_financeiro_admin" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 //     WITH CHECK: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 // Table: financial_categories
+//   Policy "Allow read for all authenticated" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
 //   Policy "financial_categories_read_authenticated" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role, 'diretoria'::app_role]))
 //   Policy "financial_categories_write_financeiro_admin" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 //     WITH CHECK: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 // Table: financial_transactions
+//   Policy "Allow read for all authenticated" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
 //   Policy "financial_transactions_read_authenticated" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role, 'diretoria'::app_role]))
 //   Policy "financial_transactions_write_financeiro_admin" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 //     WITH CHECK: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 // Table: profiles
+//   Policy "Allow read for all authenticated" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "Users can update own profile" (UPDATE, PERMISSIVE) roles={public}
+//     USING: (auth.uid() = id)
+//   Policy "Users can view own profile" (SELECT, PERMISSIVE) roles={public}
+//     USING: (auth.uid() = id)
 //   Policy "profiles_insert_own_or_admin" (INSERT, PERMISSIVE) roles={authenticated}
 //     WITH CHECK: ((auth.uid() = id) OR is_admin())
 //   Policy "profiles_select_own_or_admin" (SELECT, PERMISSIVE) roles={authenticated}
@@ -1048,10 +1084,7 @@ export const Constants = {
 //    LANGUAGE sql
 //    STABLE
 //   AS $function$
-//     select role
-//     from public.profiles
-//     where id = auth.uid()
-//     limit 1;
+//       SELECT role FROM public.profiles WHERE id = auth.uid() LIMIT 1;
 //   $function$
 //
 // FUNCTION is_admin()
@@ -1060,10 +1093,7 @@ export const Constants = {
 //    LANGUAGE sql
 //    STABLE
 //   AS $function$
-//     select coalesce(
-//       (select role = 'admin' from public.profiles where id = auth.uid() limit 1),
-//       false
-//     );
+//       SELECT COALESCE((SELECT role = 'admin' FROM public.profiles WHERE id = auth.uid() LIMIT 1), false);
 //   $function$
 //
 // FUNCTION set_updated_at()
