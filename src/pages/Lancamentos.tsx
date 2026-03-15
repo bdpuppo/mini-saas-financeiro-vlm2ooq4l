@@ -13,9 +13,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Plus } from 'lucide-react'
+import { normalizeString } from '@/utils/formatters'
 
 const getWeekOfMonth = (dateStr: string) => {
-  const d = new Date(dateStr + 'T00:00:00')
+  if (!dateStr) return ''
+  const d = new Date(dateStr + 'T12:00:00') // Avoid timezone shifts by using midday
   return Math.ceil(d.getDate() / 7).toString()
 }
 
@@ -45,25 +47,64 @@ export default function Lancamentos() {
       ? 'saida'
       : 'all'
 
+  const uniqueCategories = useMemo(() => {
+    const map = new Map<string, string>()
+    categories.forEach((c) => {
+      const norm = normalizeString(c.name)
+      if (norm && !map.has(norm)) map.set(norm, c.name.trim())
+    })
+    return Array.from(map.values())
+  }, [categories])
+
+  const uniqueCounterparties = useMemo(() => {
+    const map = new Map<string, string>()
+    counterparties.forEach((c) => {
+      const norm = normalizeString(c.name)
+      if (norm && !map.has(norm)) map.set(norm, c.name.trim())
+    })
+    return Array.from(map.values())
+  }, [counterparties])
+
+  const uniqueCostCenters = useMemo(() => {
+    const map = new Map<string, string>()
+    costCenters.forEach((c) => {
+      const norm = normalizeString(c.name)
+      if (norm && !map.has(norm)) map.set(norm, c.name.trim())
+    })
+    return Array.from(map.values())
+  }, [costCenters])
+
   const filteredTransactions = useMemo(() => {
     let txs: Transaction[] = []
     if (filterType === 'all') txs = transactionsFT
     else if (filterType === 'entrada') txs = transactionsAR
     else if (filterType === 'saida') txs = transactionsAP
 
-    if (catFilter !== 'all') txs = txs.filter((t) => t.category === catFilter)
-    if (entFilter !== 'all') txs = txs.filter((t) => t.entity === entFilter)
-    if (ccFilter !== 'all') txs = txs.filter((t) => t.costCenter === ccFilter)
+    if (catFilter !== 'all') {
+      const normFilter = normalizeString(catFilter)
+      txs = txs.filter((t) => normalizeString(t.category) === normFilter)
+    }
+    if (entFilter !== 'all') {
+      const normFilter = normalizeString(entFilter)
+      txs = txs.filter((t) => normalizeString(t.entity) === normFilter)
+    }
+    if (ccFilter !== 'all') {
+      const normFilter = normalizeString(ccFilter)
+      txs = txs.filter((t) => normalizeString(t.costCenter) === normFilter)
+    }
 
     if (statusFilter !== 'all') {
       if (statusFilter === 'realizado')
-        txs = txs.filter((t) => ['realizado', 'pago', 'recebido'].includes(t.status))
-      else if (statusFilter === 'previsto') txs = txs.filter((t) => t.status === 'previsto')
+        txs = txs.filter((t) => ['realizado', 'pago', 'recebido'].includes(t.status?.toLowerCase()))
+      else if (statusFilter === 'previsto')
+        txs = txs.filter((t) => t.status?.toLowerCase() === 'previsto')
     }
 
-    if (weekFilter !== 'all') txs = txs.filter((t) => getWeekOfMonth(t.date) === weekFilter)
+    if (weekFilter !== 'all') {
+      txs = txs.filter((t) => getWeekOfMonth(t.date) === weekFilter)
+    }
 
-    return [...txs].sort((a, b) => b.date.localeCompare(a.date))
+    return [...txs].sort((a, b) => (b.date || '').localeCompare(a.date || ''))
   }, [
     transactionsFT,
     transactionsAR,
@@ -112,9 +153,9 @@ export default function Lancamentos() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas</SelectItem>
-              {categories.map((c) => (
-                <SelectItem key={c.id} value={c.name}>
-                  {c.name}
+              {uniqueCategories.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -130,9 +171,9 @@ export default function Lancamentos() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas</SelectItem>
-              {counterparties.map((c) => (
-                <SelectItem key={c.id} value={c.name}>
-                  {c.name}
+              {uniqueCounterparties.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -148,9 +189,9 @@ export default function Lancamentos() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
-              {costCenters.map((c) => (
-                <SelectItem key={c.id} value={c.name}>
-                  {c.name}
+              {uniqueCostCenters.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
                 </SelectItem>
               ))}
             </SelectContent>

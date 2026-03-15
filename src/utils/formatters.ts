@@ -6,12 +6,16 @@ export function formatCurrency(value: number): string {
 }
 
 export function formatDate(dateString: string): string {
-  const [year, month, day] = dateString.split('-')
+  if (!dateString) return ''
+  const parts = dateString.split('T')[0].split('-')
+  if (parts.length !== 3) return dateString
+  const [year, month, day] = parts
   return `${day}/${month}/${year.substring(2)}`
 }
 
 export function getStatusClass(status: string): string {
-  switch (status.toLowerCase()) {
+  if (!status) return 'bg-gray-200 text-gray-800'
+  switch (status.toLowerCase().trim()) {
     case 'ok':
       return 'status-ok'
     case 'andamento':
@@ -23,4 +27,14 @@ export function getStatusClass(status: string): string {
     default:
       return 'bg-gray-200 text-gray-800'
   }
+}
+
+export function normalizeString(str: string | null | undefined): string {
+  if (!str) return ''
+  return str.trim().toLowerCase()
+}
+
+export function extractDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return ''
+  return dateStr.split('T')[0]
 }

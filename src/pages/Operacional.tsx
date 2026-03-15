@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import useFinanceStore from '@/stores/useFinanceStore'
 import { ActivityPanel } from '@/components/operacional/ActivityPanel'
 import { FinancePanel } from '@/components/operacional/FinancePanel'
-import { formatCurrency, formatDate } from '@/utils/formatters'
+import { formatCurrency, formatDate, extractDate } from '@/utils/formatters'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
 import { CalendarIcon, Loader2 } from 'lucide-react'
@@ -19,27 +19,31 @@ export default function Operacional() {
   } = useFinanceStore()
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
 
+  const normCurrentDate = extractDate(currentDate)
+
   const todaysActivities = useMemo(
-    () => activities.filter((a) => a.activity_date === currentDate),
-    [activities, currentDate],
+    () => activities.filter((a) => extractDate(a.activity_date) === normCurrentDate),
+    [activities, normCurrentDate],
   )
   const todaysReceivables = useMemo(
     () =>
       transactionsAR.filter(
         (t) =>
-          (t.date === currentDate || t.received_date === currentDate) &&
+          (extractDate(t.date) === normCurrentDate ||
+            extractDate(t.received_date) === normCurrentDate) &&
           t.status?.toLowerCase() !== 'cancelado',
       ),
-    [transactionsAR, currentDate],
+    [transactionsAR, normCurrentDate],
   )
   const todaysPayables = useMemo(
     () =>
       transactionsAP.filter(
         (t) =>
-          (t.date === currentDate || t.paid_date === currentDate) &&
+          (extractDate(t.date) === normCurrentDate ||
+            extractDate(t.paid_date) === normCurrentDate) &&
           t.status?.toLowerCase() !== 'cancelado',
       ),
-    [transactionsAP, currentDate],
+    [transactionsAP, normCurrentDate],
   )
 
   const saldoRealizado = useMemo(() => {
@@ -60,7 +64,7 @@ export default function Operacional() {
 
   const weekDays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
   // Use T12:00:00 to avoid timezone shifting back a day
-  const weekDayName = weekDays[new Date(currentDate + 'T12:00:00').getDay()]
+  const weekDayName = weekDays[new Date(normCurrentDate + 'T12:00:00').getDay()]
 
   if (
     isLoading &&
@@ -85,14 +89,14 @@ export default function Operacional() {
           <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
             <PopoverTrigger asChild>
               <button className="w-2/3 flex items-center justify-center font-bold text-lg bg-yellow-500 text-slate-900 hover:bg-yellow-400 transition-colors">
-                {formatDate(currentDate)}
+                {formatDate(normCurrentDate)}
                 <CalendarIcon className="ml-2 h-4 w-4 opacity-70" />
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="center">
               <Calendar
                 mode="single"
-                selected={new Date(currentDate + 'T12:00:00')}
+                selected={new Date(normCurrentDate + 'T12:00:00')}
                 onSelect={(d) => {
                   if (d) {
                     const offsetDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
@@ -133,7 +137,7 @@ export default function Operacional() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <ActivityPanel activities={todaysActivities} date={currentDate} />
+        <ActivityPanel activities={todaysActivities} date={normCurrentDate} />
         <FinancePanel
           receivables={todaysReceivables}
           payables={todaysPayables}

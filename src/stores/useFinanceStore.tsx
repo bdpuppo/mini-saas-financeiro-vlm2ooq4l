@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from '@/hooks/use-toast'
+import { normalizeString, extractDate } from '@/utils/formatters'
 
 export type TransactionType = 'entrada' | 'saida'
 export type TransactionStatus =
@@ -71,49 +72,49 @@ export const FinanceContext = createContext<FinanceStoreContext | null>(null)
 
 const mapFT = (t: any): Transaction => ({
   id: t.id,
-  date: t.transaction_date,
+  date: extractDate(t.transaction_date),
   type: t.type,
   status: t.nature,
   amount: Number(t.amount),
-  entity: t.counterparties?.name || 'Desconhecido',
+  entity: t.counterparties?.name?.trim() || 'Desconhecido',
   description: t.description || '',
-  category: t.financial_categories?.name || 'Sem Categoria',
-  costCenter: t.cost_centers?.name || 'Geral',
+  category: t.financial_categories?.name?.trim() || 'Sem Categoria',
+  costCenter: t.cost_centers?.name?.trim() || 'Geral',
   rawSource: 'ft',
 })
 
 const mapAP = (t: any): Transaction => ({
   id: t.id,
-  date: t.expected_date,
-  paid_date: t.paid_date,
+  date: extractDate(t.expected_date),
+  paid_date: extractDate(t.paid_date),
   type: 'saida',
   status: t.status,
   amount: Number(t.amount),
-  entity: t.counterparties?.name || 'Desconhecido',
+  entity: t.counterparties?.name?.trim() || 'Desconhecido',
   description: t.description || '',
-  category: t.financial_categories?.name || 'Sem Categoria',
-  costCenter: t.cost_centers?.name || 'Geral',
+  category: t.financial_categories?.name?.trim() || 'Sem Categoria',
+  costCenter: t.cost_centers?.name?.trim() || 'Geral',
   rawSource: 'ap',
 })
 
 const mapAR = (t: any): Transaction => ({
   id: t.id,
-  date: t.expected_date,
-  received_date: t.received_date,
+  date: extractDate(t.expected_date),
+  received_date: extractDate(t.received_date),
   type: 'entrada',
   status: t.status,
   amount: Number(t.amount),
-  entity: t.counterparties?.name || 'Desconhecido',
+  entity: t.counterparties?.name?.trim() || 'Desconhecido',
   description: t.description || '',
-  category: t.financial_categories?.name || 'Sem Categoria',
-  costCenter: t.cost_centers?.name || 'Geral',
+  category: t.financial_categories?.name?.trim() || 'Sem Categoria',
+  costCenter: t.cost_centers?.name?.trim() || 'Geral',
   rawSource: 'ar',
 })
 
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isSkipOpen, setIsSkipOpen] = useState(false)
-  const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0])
+  const [currentDate, setCurrentDate] = useState(extractDate(new Date().toISOString()))
 
   const [financialSummary, setFinancialSummary] = useState<any[]>([])
   const [cashBreakpoint, setCashBreakpoint] = useState<any>(null)
@@ -217,22 +218,24 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const toggleSkip = () => setIsSkipOpen(!isSkipOpen)
 
   const getOrCreateRefs = async (categoryName: string, entityName: string) => {
-    let categoryId = categories.find((c) => c.name.toLowerCase() === categoryName.toLowerCase())?.id
+    const normCat = normalizeString(categoryName)
+    const normEnt = normalizeString(entityName)
+
+    let categoryId = categories.find((c) => normalizeString(c.name) === normCat)?.id
     if (!categoryId && categoryName) {
       const { data } = await supabase
         .from('financial_categories')
-        .insert({ name: categoryName })
+        .insert({ name: categoryName.trim() })
         .select()
         .single()
       if (data) categoryId = data.id
     }
-    let counterpartyId = counterparties.find(
-      (c) => c.name.toLowerCase() === entityName.toLowerCase(),
-    )?.id
+
+    let counterpartyId = counterparties.find((c) => normalizeString(c.name) === normEnt)?.id
     if (!counterpartyId && entityName) {
       const { data } = await supabase
         .from('counterparties')
-        .insert({ name: entityName, type: 'outro' })
+        .insert({ name: entityName.trim(), type: 'outro' })
         .select()
         .single()
       if (data) counterpartyId = data.id
