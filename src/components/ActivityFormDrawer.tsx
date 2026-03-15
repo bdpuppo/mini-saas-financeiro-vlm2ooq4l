@@ -82,7 +82,7 @@ export function ActivityFormDrawer({ open, onOpenChange, editItem }: Props) {
         // Toast is handled in store
       } else {
         await addActivity(payload)
-        toast({ title: 'Sucesso', description: 'Atividade criada com sucesso!', duration: 2000 })
+        toast({ title: 'Sucesso', description: 'Atividade criada com sucesso!' })
       }
       onOpenChange(false)
     } catch (error) {

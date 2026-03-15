@@ -21,11 +21,13 @@ function EditableActivityRow({ act }: { act: Activity }) {
   const { updateActivity } = useFinanceStore()
   const [title, setTitle] = useState(act.title)
   const [obs, setObs] = useState(act.notes || '')
+  const [status, setStatus] = useState<ActivityStatus>(act.status)
 
   useEffect(() => {
     setTitle(act.title)
     setObs(act.notes || '')
-  }, [act.title, act.notes])
+    setStatus(act.status)
+  }, [act.title, act.notes, act.status])
 
   return (
     <tr className="border-b border-slate-200 border-dashed last:border-0 hover:bg-slate-50 transition-colors">
@@ -66,15 +68,14 @@ function EditableActivityRow({ act }: { act: Activity }) {
       </td>
       <td className="p-1 w-[130px] border-b-2 border-white align-middle">
         <Select
-          value={act.status}
-          onValueChange={(v) => updateActivity(act.id, { status: v as ActivityStatus })}
+          value={status}
+          onValueChange={(v) => {
+            const newStatus = v as ActivityStatus
+            setStatus(newStatus)
+            updateActivity(act.id, { status: newStatus })
+          }}
         >
-          <SelectTrigger
-            className={cn(
-              'h-8 text-xs font-semibold w-full focus:ring-0',
-              getStatusClass(act.status),
-            )}
-          >
+          <SelectTrigger className="h-8 text-xs font-semibold w-full focus:ring-0 bg-slate-100 text-slate-800 border-slate-200">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

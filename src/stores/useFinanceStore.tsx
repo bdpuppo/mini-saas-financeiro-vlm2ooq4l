@@ -213,7 +213,6 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         title: 'Erro',
         description: 'Falha ao carregar dados.',
         variant: 'destructive',
-        duration: 3000,
       })
     } finally {
       if (!background) setIsLoading(false)
@@ -368,7 +367,6 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         title: 'Erro',
         description: 'Falha ao adicionar atividade.',
         variant: 'destructive',
-        duration: 2000,
       })
       throw err
     } finally {
@@ -380,12 +378,10 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     try {
       const { error } = await supabase.from('activities').update(partial).eq('id', id)
       if (error) throw error
-      await fetchData(true)
       toast({
         title: 'Sucesso',
         description: 'Atividade atualizada.',
         variant: 'default',
-        duration: 2000,
       })
     } catch (err) {
       console.error(err)
@@ -393,7 +389,6 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         title: 'Erro',
         description: 'Falha ao atualizar atividade.',
         variant: 'destructive',
-        duration: 2000,
       })
       throw err
     }
@@ -409,7 +404,6 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         title: 'Sucesso',
         description: 'Atividade excluída.',
         variant: 'default',
-        duration: 2000,
       })
     } catch (err) {
       console.error(err)
@@ -417,7 +411,6 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         title: 'Erro',
         description: 'Falha ao excluir atividade.',
         variant: 'destructive',
-        duration: 2000,
       })
       throw err
     } finally {
