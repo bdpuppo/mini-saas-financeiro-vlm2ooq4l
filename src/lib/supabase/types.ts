@@ -989,8 +989,6 @@ export const Constants = {
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 //     WITH CHECK: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role]))
 // Table: activities
-//   Policy "Allow read for all authenticated" (SELECT, PERMISSIVE) roles={authenticated}
-//     USING: true
 //   Policy "activities_read_authenticated" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: (get_my_role() = ANY (ARRAY['admin'::app_role, 'financeiro'::app_role, 'diretoria'::app_role]))
 //   Policy "activities_write_financeiro_admin" (ALL, PERMISSIVE) roles={authenticated}
