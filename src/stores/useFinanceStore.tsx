@@ -46,6 +46,7 @@ interface FinanceStoreContext {
   cashBreakpoint: any
   activitySummary: any[]
   expensesByCategory: any[]
+  cashflowSnapshots: any[]
   transactionsFT: Transaction[]
   transactionsAP: Transaction[]
   transactionsAR: Transaction[]
@@ -114,6 +115,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [cashBreakpoint, setCashBreakpoint] = useState<any>(null)
   const [activitySummary, setActivitySummary] = useState<any[]>([])
   const [expensesByCategory, setExpensesByCategory] = useState<any[]>([])
+  const [cashflowSnapshots, setCashflowSnapshots] = useState<any[]>([])
 
   const [transactionsFT, setTransactionsFT] = useState<Transaction[]>([])
   const [transactionsAP, setTransactionsAP] = useState<Transaction[]>([])
@@ -133,6 +135,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       setTransactionsAP([])
       setTransactionsAR([])
       setActivities([])
+      setCashflowSnapshots([])
     }
   }, [session?.user])
 
@@ -151,6 +154,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         resCat,
         resCount,
         resCc,
+        resSnapshots,
       ] = await Promise.all([
         supabase
           .from('v_financial_summary')
@@ -178,6 +182,10 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         supabase.from('financial_categories').select('*'),
         supabase.from('counterparties').select('*'),
         supabase.from('cost_centers').select('*'),
+        supabase
+          .from('cashflow_snapshots')
+          .select('*')
+          .order('reference_date', { ascending: false }),
       ])
 
       if (resFinSummary.data) setFinancialSummary(resFinSummary.data)
@@ -193,6 +201,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       if (resCat.data) setCategories(resCat.data)
       if (resCount.data) setCounterparties(resCount.data)
       if (resCc.data) setCostCenters(resCc.data)
+      if (resSnapshots.data) setCashflowSnapshots(resSnapshots.data)
     } catch (err) {
       console.error('Error fetching data:', err)
       toast({ title: 'Erro', description: 'Falha ao carregar dados.', variant: 'destructive' })
@@ -388,6 +397,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     cashBreakpoint,
     activitySummary,
     expensesByCategory,
+    cashflowSnapshots,
     transactionsFT,
     transactionsAP,
     transactionsAR,

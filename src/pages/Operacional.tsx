@@ -84,8 +84,8 @@ export default function Operacional() {
                   if (d) {
                     const offsetDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
                     setCurrentDate(offsetDate.toISOString().split('T')[0])
-                    setIsCalendarOpen(false)
                   }
+                  setIsCalendarOpen(false)
                 }}
               />
             </PopoverContent>

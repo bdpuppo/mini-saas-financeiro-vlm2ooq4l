@@ -31,16 +31,24 @@ import { Wallet, TrendingUp, AlertOctagon, TrendingDown } from 'lucide-react'
 import useFinanceStore from '@/stores/useFinanceStore'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
-const formatMonth = (yyyy_mm: string) => {
-  const [y, m] = yyy_mm.split('-')
+const formatMonth = (yearMonth: string) => {
+  if (!yearMonth) return ''
+  const [y, m] = yearMonth.split('-')
+  if (!y || !m) return yearMonth
   const d = new Date(Number(y), Number(m) - 1)
   const name = d.toLocaleDateString('pt-BR', { month: 'long' })
   return name.charAt(0).toUpperCase() + name.slice(1) + '/' + y
 }
 
 export default function Index() {
-  const { isLoading, financialSummary, cashBreakpoint, activitySummary, transactionsFT } =
-    useFinanceStore()
+  const {
+    isLoading,
+    financialSummary,
+    cashBreakpoint,
+    activitySummary,
+    transactionsFT,
+    cashflowSnapshots,
+  } = useFinanceStore()
   const [selectedMonth, setSelectedMonth] = useState<string>('current')
 
   const availableMonths = useMemo(() => {
@@ -51,8 +59,11 @@ export default function Index() {
     transactionsFT.forEach((t) => {
       if (t.date) months.add(t.date.substring(0, 7))
     })
+    cashflowSnapshots?.forEach((s) => {
+      if (s.reference_date) months.add(s.reference_date.substring(0, 7))
+    })
     return Array.from(months).sort().reverse()
-  }, [financialSummary, transactionsFT])
+  }, [financialSummary, transactionsFT, cashflowSnapshots])
 
   const activeMonth = useMemo(() => {
     if (selectedMonth === 'all') return null
@@ -96,19 +107,37 @@ export default function Index() {
   const rupturaRisco = cashBreakpoint?.risk_level || 'Seguro'
 
   const cashflowData = useMemo(() => {
-    if (filteredSummary.length > 0) {
-      return [...filteredSummary].reverse().map((s) => ({
-        date: s.reference_date
-          ? s.reference_date.substring(8, 10) + '/' + s.reference_date.substring(5, 7)
-          : '',
-        entrada_realizada: Number(s.entrada_realizada || 0),
-        saida_realizada: Number(s.saida_realizada || 0),
-        entrada_prevista: Number(s.entrada_prevista || 0),
-        saida_prevista: Number(s.saida_prevista || 0),
-      }))
+    const dates = new Set<string>()
+    filteredSummary.forEach((s) => {
+      if (s.reference_date) dates.add(s.reference_date)
+    })
+
+    const filteredSnapshots = activeMonth
+      ? (cashflowSnapshots || []).filter((s: any) => s.reference_date?.startsWith(activeMonth))
+      : cashflowSnapshots || []
+
+    filteredSnapshots.forEach((s: any) => {
+      if (s.reference_date) dates.add(s.reference_date)
+    })
+
+    if (dates.size > 0) {
+      return Array.from(dates)
+        .sort()
+        .map((date) => {
+          const s = filteredSummary.find((x) => x.reference_date === date) || {}
+          const snap = filteredSnapshots.find((x: any) => x.reference_date === date) || {}
+
+          return {
+            date: date ? date.substring(8, 10) + '/' + date.substring(5, 7) : '',
+            entrada_realizada: Number(s.entrada_realizada || snap.realized_inflows || 0),
+            saida_realizada: Number(s.saida_realizada || snap.realized_outflows || 0),
+            entrada_prevista: Number(s.entrada_prevista || snap.expected_inflows || 0),
+            saida_prevista: Number(s.saida_prevista || snap.expected_outflows || 0),
+          }
+        })
     }
     return []
-  }, [filteredSummary])
+  }, [filteredSummary, cashflowSnapshots, activeMonth])
 
   const expensesData = useMemo(() => {
     const filteredTxs = activeMonth
