@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 
 interface ActivityPanelProps {
@@ -39,14 +40,15 @@ function EditableActivityRow({ act }: { act: Activity }) {
             }}
             placeholder="Título da atividade"
           />
-          <input
-            className="w-full bg-transparent px-2 pb-2 pt-0.5 focus:bg-white outline-none text-xs text-slate-500 italic"
+          <Textarea
+            className="w-full bg-transparent px-2 pb-2 pt-0.5 focus:bg-white outline-none border-transparent shadow-none focus-visible:ring-1 focus-visible:ring-slate-300 text-xs text-slate-500 italic resize-y min-h-[40px] rounded-none"
             value={obs}
             onChange={(e) => setObs(e.target.value)}
             onBlur={() => {
               if (obs !== (act.notes || '')) updateActivity(act.id, { notes: obs })
             }}
             placeholder="Adicionar observação..."
+            rows={1}
           />
         </div>
       </td>

@@ -372,6 +372,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.from('activities').update(partial).eq('id', id)
       if (error) throw error
       await fetchData()
+      toast({ title: 'Sucesso', description: 'Atividade atualizada.', variant: 'default' })
     } catch (err) {
       console.error(err)
       toast({ title: 'Erro', description: 'Falha ao atualizar atividade.', variant: 'destructive' })
