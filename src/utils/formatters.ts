@@ -7,7 +7,9 @@ export function formatCurrency(value: number): string {
 
 export function formatDate(dateString: string): string {
   if (!dateString) return ''
-  const parts = dateString.split('T')[0].split('-')
+  const match = dateString.match(/(\d{4}-\d{2}-\d{2})/)
+  const strToSplit = match ? match[1] : dateString.split('T')[0].split(' ')[0]
+  const parts = strToSplit.split('-')
   if (parts.length !== 3) return dateString
   const [year, month, day] = parts
   return `${day}/${month}/${year.substring(2)}`
@@ -36,5 +38,9 @@ export function normalizeString(str: string | null | undefined): string {
 
 export function extractDate(dateStr: string | null | undefined): string {
   if (!dateStr) return ''
-  return dateStr.split('T')[0]
+  // Use regex to robustly grab YYYY-MM-DD anywhere in the string,
+  // ignoring time and timezone parts.
+  const match = dateStr.match(/(\d{4}-\d{2}-\d{2})/)
+  if (match) return match[1]
+  return dateStr.split('T')[0].split(' ')[0]
 }

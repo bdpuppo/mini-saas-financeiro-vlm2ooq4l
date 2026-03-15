@@ -25,26 +25,37 @@ export default function Operacional() {
     () => activities.filter((a) => extractDate(a.activity_date) === normCurrentDate),
     [activities, normCurrentDate],
   )
-  const todaysReceivables = useMemo(
-    () =>
-      transactionsAR.filter(
-        (t) =>
-          (extractDate(t.date) === normCurrentDate ||
-            extractDate(t.received_date) === normCurrentDate) &&
-          t.status?.toLowerCase() !== 'cancelado',
-      ),
-    [transactionsAR, normCurrentDate],
-  )
-  const todaysPayables = useMemo(
-    () =>
-      transactionsAP.filter(
-        (t) =>
-          (extractDate(t.date) === normCurrentDate ||
-            extractDate(t.paid_date) === normCurrentDate) &&
-          t.status?.toLowerCase() !== 'cancelado',
-      ),
-    [transactionsAP, normCurrentDate],
-  )
+
+  const todaysReceivables = useMemo(() => {
+    const fromAR = transactionsAR.filter(
+      (t) =>
+        (extractDate(t.date) === normCurrentDate ||
+          extractDate(t.received_date) === normCurrentDate) &&
+        t.status?.toLowerCase() !== 'cancelado',
+    )
+    const fromFT = transactionsFT.filter(
+      (t) =>
+        t.type?.toLowerCase() === 'entrada' &&
+        extractDate(t.date) === normCurrentDate &&
+        t.status?.toLowerCase() !== 'cancelado',
+    )
+    return [...fromAR, ...fromFT]
+  }, [transactionsAR, transactionsFT, normCurrentDate])
+
+  const todaysPayables = useMemo(() => {
+    const fromAP = transactionsAP.filter(
+      (t) =>
+        (extractDate(t.date) === normCurrentDate || extractDate(t.paid_date) === normCurrentDate) &&
+        t.status?.toLowerCase() !== 'cancelado',
+    )
+    const fromFT = transactionsFT.filter(
+      (t) =>
+        t.type?.toLowerCase() === 'saida' &&
+        extractDate(t.date) === normCurrentDate &&
+        t.status?.toLowerCase() !== 'cancelado',
+    )
+    return [...fromAP, ...fromFT]
+  }, [transactionsAP, transactionsFT, normCurrentDate])
 
   const saldoRealizado = useMemo(() => {
     return transactionsFT
