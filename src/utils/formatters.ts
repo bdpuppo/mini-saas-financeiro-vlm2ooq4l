@@ -19,15 +19,15 @@ export function getStatusClass(status: string): string {
   if (!status) return 'bg-slate-100 text-slate-800 border-slate-200'
   switch (status.toLowerCase().trim()) {
     case 'ok':
-      return 'bg-green-100 text-green-800 border border-green-200'
+      return 'bg-green-600 text-white border-green-700'
     case 'andamento':
-      return 'bg-blue-100 text-blue-800 border border-blue-200'
+      return 'bg-blue-600 text-white border-blue-700'
     case 'aguardando':
-      return 'bg-amber-100 text-amber-800 border border-amber-200'
+      return 'bg-amber-500 text-slate-900 border-amber-600'
     case 'parado':
-      return 'bg-red-100 text-red-800 border border-red-200'
+      return 'bg-red-600 text-white border-red-700'
     default:
-      return 'bg-slate-100 text-slate-800 border border-slate-200'
+      return 'bg-slate-100 text-slate-800 border-slate-200'
   }
 }
 

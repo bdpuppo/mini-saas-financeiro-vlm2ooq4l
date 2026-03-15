@@ -66,7 +66,7 @@ function EditableActivityRow({ act }: { act: Activity }) {
           />
         </div>
       </td>
-      <td className="p-1 w-[130px] border-b-2 border-white align-middle">
+      <td className="p-1.5 w-[140px] border-b-2 border-white align-middle">
         <Select
           value={status}
           onValueChange={(v) => {
@@ -75,7 +75,12 @@ function EditableActivityRow({ act }: { act: Activity }) {
             updateActivity(act.id, { status: newStatus })
           }}
         >
-          <SelectTrigger className="h-8 text-xs font-semibold w-full focus:ring-0 bg-slate-100 text-slate-800 border-slate-200">
+          <SelectTrigger
+            className={cn(
+              'h-8 text-xs font-semibold w-full focus:ring-0 transition-colors shadow-sm',
+              getStatusClass(status),
+            )}
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -118,7 +123,7 @@ export function ActivityPanel({ activities }: ActivityPanelProps) {
               className="w-full h-full object-cover"
             />
           </div>
-          <div className="p-2 space-y-1 text-xs bg-slate-50 flex-1">
+          <div className="p-3 space-y-2 text-xs bg-slate-50 flex-1">
             {['Aguardando', 'Andamento', 'Parado', 'OK'].map((status) => {
               const count = statusCounts[status.toLowerCase()] || 0
               const pct = total ? Math.round((count / total) * 100) : 0
@@ -126,13 +131,14 @@ export function ActivityPanel({ activities }: ActivityPanelProps) {
                 <div
                   key={status}
                   className={cn(
-                    'flex justify-between px-2 py-1.5 rounded',
+                    'flex justify-between px-2.5 py-2 rounded shadow-sm border',
                     getStatusClass(status),
-                    'bg-opacity-40',
                   )}
                 >
-                  <span className="font-medium">{status}</span>
-                  <span>{pct}%</span>
+                  <span className="font-semibold uppercase tracking-wide text-[11px]">
+                    {status}
+                  </span>
+                  <span className="font-bold">{pct}%</span>
                 </div>
               )
             })}
