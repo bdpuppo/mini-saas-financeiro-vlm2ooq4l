@@ -65,7 +65,7 @@ interface FinanceStoreContext {
   addActivity: (partial: Partial<Activity>) => Promise<void>
   updateActivity: (id: string, partial: Partial<Activity>) => Promise<void>
   deleteActivity: (id: string) => Promise<void>
-  fetchData: () => Promise<void>
+  fetchData: (background?: boolean) => Promise<void>
 }
 
 export const FinanceContext = createContext<FinanceStoreContext | null>(null)
@@ -144,8 +144,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     }
   }, [session?.user])
 
-  const fetchData = async () => {
-    setIsLoading(true)
+  const fetchData = async (background = false) => {
+    if (!background) setIsLoading(true)
     try {
       const [
         resFinSummary,
@@ -209,9 +209,14 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       if (resSnapshots.data) setCashflowSnapshots(resSnapshots.data)
     } catch (err) {
       console.error('Error fetching data:', err)
-      toast({ title: 'Erro', description: 'Falha ao carregar dados.', variant: 'destructive' })
+      toast({
+        title: 'Erro',
+        description: 'Falha ao carregar dados.',
+        variant: 'destructive',
+        duration: 3000,
+      })
     } finally {
-      setIsLoading(false)
+      if (!background) setIsLoading(false)
     }
   }
 
@@ -359,7 +364,12 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       await fetchData()
     } catch (err) {
       console.error(err)
-      toast({ title: 'Erro', description: 'Falha ao adicionar atividade.', variant: 'destructive' })
+      toast({
+        title: 'Erro',
+        description: 'Falha ao adicionar atividade.',
+        variant: 'destructive',
+        duration: 2000,
+      })
       throw err
     } finally {
       setIsLoading(false)
@@ -367,18 +377,25 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   }
 
   const updateActivity = async (id: string, partial: Partial<Activity>) => {
-    setIsLoading(true)
     try {
       const { error } = await supabase.from('activities').update(partial).eq('id', id)
       if (error) throw error
-      await fetchData()
-      toast({ title: 'Sucesso', description: 'Atividade atualizada.', variant: 'default' })
+      await fetchData(true)
+      toast({
+        title: 'Sucesso',
+        description: 'Atividade atualizada.',
+        variant: 'default',
+        duration: 2000,
+      })
     } catch (err) {
       console.error(err)
-      toast({ title: 'Erro', description: 'Falha ao atualizar atividade.', variant: 'destructive' })
+      toast({
+        title: 'Erro',
+        description: 'Falha ao atualizar atividade.',
+        variant: 'destructive',
+        duration: 2000,
+      })
       throw err
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -388,9 +405,20 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.from('activities').delete().eq('id', id)
       if (error) throw error
       await fetchData()
+      toast({
+        title: 'Sucesso',
+        description: 'Atividade excluída.',
+        variant: 'default',
+        duration: 2000,
+      })
     } catch (err) {
       console.error(err)
-      toast({ title: 'Erro', description: 'Falha ao excluir atividade.', variant: 'destructive' })
+      toast({
+        title: 'Erro',
+        description: 'Falha ao excluir atividade.',
+        variant: 'destructive',
+        duration: 2000,
+      })
       throw err
     } finally {
       setIsLoading(false)

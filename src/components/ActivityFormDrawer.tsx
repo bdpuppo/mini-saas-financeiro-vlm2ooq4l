@@ -79,14 +79,14 @@ export function ActivityFormDrawer({ open, onOpenChange, editItem }: Props) {
     try {
       if (editItem) {
         await updateActivity(editItem.id, payload)
-        toast({ title: 'Sucesso', description: 'Atividade atualizada com sucesso!' })
+        // Toast is handled in store
       } else {
         await addActivity(payload)
-        toast({ title: 'Sucesso', description: 'Atividade criada com sucesso!' })
+        toast({ title: 'Sucesso', description: 'Atividade criada com sucesso!', duration: 2000 })
       }
       onOpenChange(false)
     } catch (error) {
-      // Error is handled in store, but we catch to stop loading
+      // Error is handled in store
     } finally {
       setIsSubmitting(false)
     }

@@ -38,6 +38,12 @@ function EditableActivityRow({ act }: { act: Activity }) {
             onBlur={() => {
               if (title !== act.title) updateActivity(act.id, { title })
             }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                e.currentTarget.blur()
+              }
+            }}
             placeholder="Título da atividade"
           />
           <Textarea
@@ -46,6 +52,12 @@ function EditableActivityRow({ act }: { act: Activity }) {
             onChange={(e) => setObs(e.target.value)}
             onBlur={() => {
               if (obs !== (act.notes || '')) updateActivity(act.id, { notes: obs })
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                e.currentTarget.blur()
+              }
             }}
             placeholder="Adicionar observação..."
             rows={1}
@@ -58,7 +70,10 @@ function EditableActivityRow({ act }: { act: Activity }) {
           onValueChange={(v) => updateActivity(act.id, { status: v as ActivityStatus })}
         >
           <SelectTrigger
-            className={cn('h-8 text-xs border-0 w-full focus:ring-0', getStatusClass(act.status))}
+            className={cn(
+              'h-8 text-xs font-semibold w-full focus:ring-0',
+              getStatusClass(act.status),
+            )}
           >
             <SelectValue />
           </SelectTrigger>
@@ -111,7 +126,7 @@ export function ActivityPanel({ activities }: ActivityPanelProps) {
                   key={status}
                   className={cn(
                     'flex justify-between px-2 py-1.5 rounded',
-                    getStatusClass(status.toLowerCase()),
+                    getStatusClass(status),
                     'bg-opacity-40',
                   )}
                 >

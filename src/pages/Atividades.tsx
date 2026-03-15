@@ -13,6 +13,7 @@ import { Progress } from '@/components/ui/progress'
 import { ActivityFormDrawer } from '@/components/ActivityFormDrawer'
 import { getStatusClass, formatDate } from '@/utils/formatters'
 import { Loader2, Plus, Pencil, Trash } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export default function Atividades() {
   const { activities, isLoading, deleteActivity } = useFinanceStore()
@@ -37,7 +38,7 @@ export default function Atividades() {
         <Button
           onClick={() => setIsDrawerOpen(true)}
           className="bg-primary shadow-sm"
-          disabled={isLoading}
+          disabled={isLoading && activities.length === 0}
         >
           <Plus className="h-4 w-4 mr-2" />
           Nova Atividade
@@ -83,7 +84,10 @@ export default function Atividades() {
                   <TableCell className="text-slate-600">{act.responsible || '-'}</TableCell>
                   <TableCell>
                     <div
-                      className={`px-2 py-1 rounded text-center text-xs uppercase font-semibold ${getStatusClass(act.status)}`}
+                      className={cn(
+                        'px-2 py-1 rounded text-center text-xs uppercase font-semibold',
+                        getStatusClass(act.status),
+                      )}
                     >
                       {act.status}
                     </div>
