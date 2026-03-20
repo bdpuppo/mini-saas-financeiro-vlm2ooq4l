@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus } from 'lucide-react'
+import { Mic, Plus } from 'lucide-react'
 import { normalizeString } from '@/utils/formatters'
 
 const getWeekOfMonth = (dateStr: string) => {
@@ -34,6 +34,7 @@ export default function Lancamentos() {
   } = useFinanceStore()
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [editTx, setEditTx] = useState<Transaction | null>(null)
+  const [startVoiceRecording, setStartVoiceRecording] = useState(false)
 
   const [catFilter, setCatFilter] = useState('all')
   const [entFilter, setEntFilter] = useState('all')
@@ -123,6 +124,10 @@ export default function Lancamentos() {
     saida: 'Contas a Pagar',
   }
 
+  const isSpeechSupported =
+    typeof window !== 'undefined' &&
+    !!(window.SpeechRecognition || (window as any).webkitSpeechRecognition)
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -132,14 +137,33 @@ export default function Lancamentos() {
             Gerencie suas transações e acompanhe os status.
           </p>
         </div>
-        <Button
-          onClick={() => setIsDrawerOpen(true)}
-          className="bg-primary shadow-sm"
-          disabled={isLoading}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Lançamento
-        </Button>
+        <div className="flex items-center gap-2">
+          {isSpeechSupported && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setStartVoiceRecording(true)
+                setIsDrawerOpen(true)
+              }}
+              disabled={isLoading}
+              className="hidden sm:flex text-primary hover:bg-primary/5 hover:text-primary border-primary/20"
+            >
+              <Mic className="h-4 w-4 mr-2" />
+              Por Voz
+            </Button>
+          )}
+          <Button
+            onClick={() => {
+              setStartVoiceRecording(false)
+              setIsDrawerOpen(true)
+            }}
+            className="bg-primary shadow-sm"
+            disabled={isLoading}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Lançamento
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
@@ -242,10 +266,14 @@ export default function Lancamentos() {
         open={isDrawerOpen || !!editTx}
         onOpenChange={(val) => {
           setIsDrawerOpen(val)
-          if (!val) setEditTx(null)
+          if (!val) {
+            setEditTx(null)
+            setStartVoiceRecording(false)
+          }
         }}
         defaultType={filterType}
         editItem={editTx}
+        startVoiceRecording={startVoiceRecording}
       />
     </div>
   )
