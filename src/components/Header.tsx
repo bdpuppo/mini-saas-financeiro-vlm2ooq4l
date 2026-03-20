@@ -3,9 +3,11 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import useFinanceStore from '@/stores/useFinanceStore'
+import { useAuth } from '@/hooks/use-auth'
 
 export function Header() {
   const { toggleSkip } = useFinanceStore()
+  const { profile } = useAuth()
 
   return (
     <header className="h-16 border-b bg-white flex items-center justify-between px-4 sticky top-0 z-30">
@@ -40,8 +42,10 @@ export function Header() {
         </Button>
         <div className="flex items-center gap-2 border-l pl-4 ml-2">
           <div className="text-right hidden sm:block">
-            <p className="text-sm font-medium leading-none">Diretoria</p>
-            <p className="text-xs text-muted-foreground">Admin</p>
+            <p className="text-sm font-medium leading-none">{profile?.full_name || 'Usuário'}</p>
+            <p className="text-xs text-muted-foreground capitalize">
+              {profile?.role || 'Financeiro'}
+            </p>
           </div>
           <Button variant="secondary" size="icon" className="rounded-full">
             <User className="h-4 w-4" />
