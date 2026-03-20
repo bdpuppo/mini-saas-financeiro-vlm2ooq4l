@@ -1,13 +1,21 @@
-import { Bell, Search, User } from 'lucide-react'
+import { Bell, Search, User, LogOut } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { SidebarTrigger } from '@/components/ui/sidebar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import useFinanceStore from '@/stores/useFinanceStore'
 import { useAuth } from '@/hooks/use-auth'
 
 export function Header() {
   const { toggleSkip } = useFinanceStore()
-  const { profile } = useAuth()
+  const { profile, signOut } = useAuth()
 
   return (
     <header className="h-16 border-b bg-white flex items-center justify-between px-4 sticky top-0 z-30">
@@ -47,9 +55,33 @@ export function Header() {
               {profile?.role || 'Financeiro'}
             </p>
           </div>
-          <Button variant="secondary" size="icon" className="rounded-full">
-            <User className="h-4 w-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="secondary" size="icon" className="rounded-full">
+                <User className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="font-normal block sm:hidden">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">
+                    {profile?.full_name || 'Usuário'}
+                  </p>
+                  <p className="text-xs text-muted-foreground capitalize">
+                    {profile?.role || 'Financeiro'}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator className="block sm:hidden" />
+              <DropdownMenuItem
+                onClick={() => signOut()}
+                className="text-red-600 cursor-pointer focus:bg-red-50 focus:text-red-700"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Sair</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>
