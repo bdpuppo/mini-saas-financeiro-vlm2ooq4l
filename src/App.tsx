@@ -9,6 +9,7 @@ import Index from '@/pages/Index'
 import Operacional from '@/pages/Operacional'
 import Lancamentos from '@/pages/Lancamentos'
 import Atividades from '@/pages/Atividades'
+import Usuarios from '@/pages/Usuarios'
 import NotFound from '@/pages/NotFound'
 import Login from '@/pages/Login'
 import { Loader2 } from 'lucide-react'
@@ -42,6 +43,7 @@ const AppRoutes = () => {
         <Route path="/receber" element={<Lancamentos />} />
         <Route path="/pagar" element={<Lancamentos />} />
         <Route path="/atividades" element={<Atividades />} />
+        <Route path="/usuarios" element={<Usuarios />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>

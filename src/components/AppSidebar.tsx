@@ -6,6 +6,8 @@ import {
   ArrowUpRight,
   ListTodo,
   Lightbulb,
+  Users,
+  LogOut,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -19,10 +21,12 @@ import {
   SidebarHeader,
 } from '@/components/ui/sidebar'
 import useFinanceStore from '@/stores/useFinanceStore'
+import { useAuth } from '@/hooks/use-auth'
 
 export function AppSidebar() {
   const location = useLocation()
   const { toggleSkip } = useFinanceStore()
+  const { profile, signOut } = useAuth()
 
   const navItems = [
     { title: 'Dashboard', url: '/', icon: LayoutDashboard },
@@ -32,6 +36,10 @@ export function AppSidebar() {
     { title: 'Contas a Pagar', url: '/pagar', icon: ArrowDownRight },
     { title: 'Atividades', url: '/atividades', icon: ListTodo },
   ]
+
+  if (profile?.role === 'admin') {
+    navItems.push({ title: 'Usuários', url: '/usuarios', icon: Users })
+  }
 
   return (
     <Sidebar variant="sidebar" className="border-r-0">
@@ -69,10 +77,19 @@ export function AppSidebar() {
             <SidebarMenuItem>
               <SidebarMenuButton
                 onClick={toggleSkip}
-                className="bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary"
+                className="bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary mb-2"
               >
                 <Lightbulb className="h-4 w-4" />
                 <span className="font-medium">SKIP Intelligence</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => signOut()}
+                className="text-slate-500 hover:text-red-600 hover:bg-red-50"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Sair</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
