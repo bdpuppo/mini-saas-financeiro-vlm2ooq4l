@@ -24,7 +24,7 @@ Deno.serve(async (req: Request) => {
       email,
       password: senha,
       email_confirm: true,
-      user_metadata: { nome, role: 'financeiro' }
+      user_metadata: { nome, role: 'financeiro' },
     })
 
     if (authError) throw authError
@@ -35,8 +35,8 @@ Deno.serve(async (req: Request) => {
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${RESEND_API_KEY}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           from: 'Mini SaaS <onboarding@resend.dev>',
@@ -57,8 +57,8 @@ Deno.serve(async (req: Request) => {
               <br/>
               <p>Atenciosamente,<br/>Equipe do Sistema</p>
             </div>
-          `
-        })
+          `,
+        }),
       })
 
       if (!res.ok) {
