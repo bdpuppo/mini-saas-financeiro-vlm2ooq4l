@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/use-auth'
+import { createUser } from '@/services/skipCloudService'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from '@/hooks/use-toast'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export default function Login() {
   const location = useLocation()
@@ -19,13 +21,57 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showRetry, setShowRetry] = useState(false)
 
-  const { signIn, signUp, session, loading } = useAuth()
+  // Validation States
+  const [nameTouched, setNameTouched] = useState(false)
+  const [emailTouched, setEmailTouched] = useState(false)
+  const [passwordTouched, setPasswordTouched] = useState(false)
+
+  const [nameErrorMsg, setNameErrorMsg] = useState('')
+  const [emailErrorMsg, setEmailErrorMsg] = useState('')
+  const [passwordErrorMsg, setPasswordErrorMsg] = useState('')
+
+  const { signIn, session, loading } = useAuth()
 
   useEffect(() => {
     const tab = location.pathname === '/cadastro' ? 'register' : 'login'
     setActiveTab(tab)
   }, [location.pathname])
+
+  const validateName = (val: string) => {
+    if (!val) return 'Campo obrigatório'
+    if (val.length < 3 || val.length > 100) return 'O nome deve ter entre 3 e 100 caracteres'
+    return ''
+  }
+
+  const validateEmail = (val: string) => {
+    if (!val) return 'Campo obrigatório'
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return 'Email inválido'
+    return ''
+  }
+
+  const validatePassword = (val: string) => {
+    if (!val) return 'Campo obrigatório'
+    if (val.length < 8 || !/[A-Z]/.test(val) || !/[0-9]/.test(val)) {
+      return 'A senha deve ter no mínimo 8 caracteres, uma letra maiúscula e um número'
+    }
+    return ''
+  }
+
+  useEffect(() => {
+    if (nameTouched) setNameErrorMsg(validateName(name))
+  }, [name, nameTouched])
+
+  useEffect(() => {
+    if (emailTouched) setEmailErrorMsg(validateEmail(email))
+  }, [email, emailTouched])
+
+  useEffect(() => {
+    if (passwordTouched) setPasswordErrorMsg(validatePassword(password))
+  }, [password, passwordTouched])
+
+  const isFormValid = !validateName(name) && !validateEmail(email) && !validatePassword(password)
 
   const handleTabChange = (val: string) => {
     setActiveTab(val)
@@ -64,37 +110,43 @@ export default function Login() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name || !email || !password) {
-      toast({
-        title: 'Erro',
-        description: 'Preencha todos os campos.',
-        variant: 'destructive',
-      })
-      return
-    }
-    if (password.length < 6) {
-      toast({
-        title: 'Erro',
-        description: 'A senha deve ter pelo menos 6 caracteres.',
-        variant: 'destructive',
-      })
-      return
-    }
+    if (!isFormValid) return
 
     setIsSubmitting(true)
-    const { error } = await signUp(email, password, name)
-    setIsSubmitting(false)
-    if (error) {
+    setShowRetry(false)
+
+    try {
+      await createUser({ name, email, password })
       toast({
-        title: 'Erro ao criar conta',
-        description: error.message || 'Ocorreu um erro durante o cadastro.',
-        variant: 'destructive',
+        title: 'Cadastro realizado com sucesso!',
+        variant: 'default',
       })
-    } else {
-      toast({
-        title: 'Conta criada com sucesso',
-        description: 'Você já pode acessar o sistema.',
-      })
+
+      setTimeout(() => {
+        handleTabChange('login')
+        setName('')
+        setEmail('')
+        setPassword('')
+        setNameTouched(false)
+        setEmailTouched(false)
+        setPasswordTouched(false)
+        setNameErrorMsg('')
+        setEmailErrorMsg('')
+        setPasswordErrorMsg('')
+      }, 2000)
+    } catch (error: any) {
+      if (error.message === 'conflict_email') {
+        setEmailErrorMsg('Este email já está cadastrado')
+      } else {
+        toast({
+          title: 'Erro ao criar conta',
+          description: 'Erro ao criar conta. Tente novamente',
+          variant: 'destructive',
+        })
+        setShowRetry(true)
+      }
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -145,39 +197,71 @@ export default function Login() {
 
             <TabsContent value="register" className="space-y-4">
               <form onSubmit={handleRegister} className="space-y-4">
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    required
+                    onBlur={() => setNameTouched(true)}
                     placeholder="Nome completo"
-                    className="bg-white"
+                    className={cn('bg-white transition-colors', nameErrorMsg && 'border-red-500')}
+                    disabled={isSubmitting}
                   />
+                  {nameErrorMsg && (
+                    <p className="text-xs text-red-500 animate-in fade-in slide-in-from-top-1">
+                      {nameErrorMsg}
+                    </p>
+                  )}
                 </div>
-                <div className="space-y-2">
+
+                <div className="space-y-1">
                   <Input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    required
+                    onBlur={() => setEmailTouched(true)}
                     placeholder="E-mail"
-                    className="bg-white"
+                    className={cn('bg-white transition-colors', emailErrorMsg && 'border-red-500')}
+                    disabled={isSubmitting}
                   />
+                  {emailErrorMsg && (
+                    <p className="text-xs text-red-500 animate-in fade-in slide-in-from-top-1">
+                      {emailErrorMsg}
+                    </p>
+                  )}
                 </div>
-                <div className="space-y-2">
+
+                <div className="space-y-1">
                   <Input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    required
-                    placeholder="Senha (mínimo 6 caracteres)"
-                    className="bg-white"
+                    onBlur={() => setPasswordTouched(true)}
+                    placeholder="Senha"
+                    className={cn(
+                      'bg-white transition-colors',
+                      passwordErrorMsg && 'border-red-500',
+                    )}
+                    disabled={isSubmitting}
                   />
+                  {passwordErrorMsg && (
+                    <p className="text-xs text-red-500 animate-in fade-in slide-in-from-top-1">
+                      {passwordErrorMsg}
+                    </p>
+                  )}
                 </div>
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Criar Conta
+
+                <Button type="submit" className="w-full" disabled={!isFormValid || isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Criando conta...
+                    </>
+                  ) : showRetry ? (
+                    'Tentar novamente'
+                  ) : (
+                    'Criar Conta'
+                  )}
                 </Button>
               </form>
             </TabsContent>
