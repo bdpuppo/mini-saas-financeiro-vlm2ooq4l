@@ -10,6 +10,7 @@ migrate(
       user.setPassword('securepassword123')
       user.setVerified(true)
       user.set('name', 'Administrador')
+      user.set('password_hash', 'dummy_hash_for_seed')
       app.save(user)
     }
 
