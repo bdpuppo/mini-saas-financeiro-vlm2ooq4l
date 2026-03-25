@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select'
 import { Mic, Plus } from 'lucide-react'
 import { normalizeString } from '@/utils/formatters'
+import { toast } from 'sonner'
 
 const getWeekOfMonth = (dateStr: string) => {
   if (!dateStr) return ''
@@ -33,6 +34,7 @@ export default function Lancamentos() {
     counterparties,
     costCenters,
     addTransaction,
+    fetchData,
   } = useFinanceStore()
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
@@ -122,32 +124,65 @@ export default function Lancamentos() {
   ])
 
   const handleImport = async (data: any[]) => {
-    for (const row of data) {
-      let type =
-        filterType === 'entrada'
-          ? 'entrada'
-          : filterType === 'saida'
-            ? 'saida'
-            : row.tipo?.toLowerCase() || (Number(row.valor) >= 0 ? 'entrada' : 'saida')
+    let successCount = 0
+    let errorCount = 0
+    const batch = data.slice(0, 500)
 
-      let status = filterType === 'all' ? 'realizado' : row.status?.toLowerCase() || 'previsto'
-      let entity =
-        filterType === 'entrada'
-          ? row.cliente
-          : filterType === 'saida'
-            ? row.favorecido
-            : row.descricao
+    for (let i = 0; i < batch.length; i++) {
+      const row = batch[i]
+      try {
+        let type =
+          filterType === 'entrada'
+            ? 'entrada'
+            : filterType === 'saida'
+              ? 'saida'
+              : row.tipo?.toLowerCase() || (Number(row.valor) >= 0 ? 'entrada' : 'saida')
 
-      await addTransaction({
-        date: row.data || new Date().toISOString().split('T')[0],
-        amount: Math.abs(Number(row.valor)) || 0,
-        category: row.categoria || 'Geral',
-        description: row.descricao || '',
-        entity: entity || 'Desconhecido',
-        status: status,
-        type: type,
-      })
+        let status =
+          filterType === 'all'
+            ? row.status === 'realizado'
+              ? 'realizado'
+              : 'previsto'
+            : row.status || 'previsto'
+
+        let entity =
+          filterType === 'entrada'
+            ? row.cliente
+            : filterType === 'saida'
+              ? row.favorecido
+              : row.cliente || row.favorecido || row.descricao || 'Desconhecido'
+
+        if (!row.data || row.valor === undefined) {
+          throw new Error('Campos obrigatórios ausentes')
+        }
+
+        await addTransaction(
+          {
+            date: row.data || new Date().toISOString().split('T')[0],
+            amount: Math.abs(Number(row.valor)) || 0,
+            category: row.categoria || 'Geral',
+            description: row.descricao || '',
+            entity: entity || 'Desconhecido',
+            status: status,
+            type: type,
+          },
+          true,
+        )
+        successCount++
+      } catch (err) {
+        errorCount++
+        toast.error(`Linha ${i + 1}: ${err instanceof Error ? err.message : 'Erro na importação'}`)
+      }
     }
+
+    if (successCount > 0) {
+      toast.success(`${successCount}/${batch.length} registros importados com sucesso!`)
+    }
+    if (errorCount > 0) {
+      toast.error(`${errorCount} registros falharam durante a importação.`)
+    }
+
+    await fetchData(true)
   }
 
   const titles = {

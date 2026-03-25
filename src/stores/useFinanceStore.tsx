@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import pb from '@/lib/pocketbase/client'
 import { toast } from 'sonner'
 import { extractDate } from '@/utils/formatters'
+import { useRealtime } from '@/hooks/use-realtime'
 
 export type TransactionType = 'entrada' | 'saida'
 export type TransactionStatus =
@@ -54,10 +55,10 @@ interface FinanceStoreContext {
   costCenters: any[]
   toggleSkip: () => void
   setCurrentDate: (date: string) => void
-  addTransaction: (t: any) => Promise<void>
+  addTransaction: (t: any, skipFetch?: boolean) => Promise<void>
   updateTransaction: (id: string, partial: any, rawSource?: string) => Promise<void>
   updateTransactionStatus: (id: string, status: string, rawSource?: string) => Promise<void>
-  addActivity: (partial: Partial<Activity>) => Promise<void>
+  addActivity: (partial: Partial<Activity>, skipFetch?: boolean) => Promise<void>
   updateActivity: (id: string, partial: Partial<Activity>) => Promise<void>
   deleteActivity: (id: string) => Promise<void>
   fetchData: (background?: boolean) => Promise<void>
@@ -238,10 +239,15 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     fetchData()
   }, [fetchData])
 
+  useRealtime('lancamentos', () => fetchData(true))
+  useRealtime('contas_pagar', () => fetchData(true))
+  useRealtime('contas_receber', () => fetchData(true))
+  useRealtime('atividades', () => fetchData(true))
+
   const toggleSkip = () => setIsSkipOpen(!isSkipOpen)
 
-  const addTransaction = async (t: any) => {
-    setIsLoading(true)
+  const addTransaction = async (t: any, skipFetch = false) => {
+    if (!skipFetch) setIsLoading(true)
     try {
       const userId = pb.authStore.record?.id
       if (!userId) throw new Error('User not logged in')
@@ -278,12 +284,12 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       }
 
       await pb.collection(table).create(payload)
-      await fetchData(true)
+      if (!skipFetch) await fetchData(true)
     } catch (err) {
       console.error(err)
       throw err
     } finally {
-      setIsLoading(false)
+      if (!skipFetch) setIsLoading(false)
     }
   }
 
@@ -349,8 +355,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const addActivity = async (payload: Partial<Activity>) => {
-    setIsLoading(true)
+  const addActivity = async (payload: Partial<Activity>, skipFetch = false) => {
+    if (!skipFetch) setIsLoading(true)
     try {
       const userId = pb.authStore.record?.id
       if (!userId) throw new Error('User not logged in')
@@ -362,13 +368,13 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
         status: payload.status || 'Aguardando',
         responsavel: payload.responsible || '',
       })
-      await fetchData(true)
+      if (!skipFetch) await fetchData(true)
     } catch (err) {
       console.error(err)
-      toast.error('Falha ao adicionar atividade.')
+      if (!skipFetch) toast.error('Falha ao adicionar atividade.')
       throw err
     } finally {
-      setIsLoading(false)
+      if (!skipFetch) setIsLoading(false)
     }
   }
 

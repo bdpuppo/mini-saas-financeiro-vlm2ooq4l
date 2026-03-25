@@ -42,6 +42,11 @@ export default function Login() {
     const tab = location.pathname === '/cadastro' ? 'register' : 'login'
     setActiveTab(tab)
     setShowForgot(false)
+    if (tab === 'register') {
+      setPassword('Senha123')
+    } else {
+      setPassword('')
+    }
   }, [location.pathname])
 
   const validateName = (val: string) => {
@@ -82,8 +87,10 @@ export default function Login() {
     setActiveTab(val)
     setShowForgot(false)
     if (val === 'register') {
+      setPassword('Senha123')
       navigate('/cadastro', { replace: true })
     } else {
+      setPassword('')
       navigate('/login', { replace: true })
     }
   }

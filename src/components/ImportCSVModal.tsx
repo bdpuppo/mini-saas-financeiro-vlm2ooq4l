@@ -17,6 +17,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { toast } from 'sonner'
+import {
+  parseImportDate,
+  parseImportCurrency,
+  parseImportStatus,
+  mapFuzzyHeader,
+} from '@/utils/formatters'
 
 interface ImportCSVModalProps {
   onImport: (data: any[]) => Promise<void>
@@ -57,7 +63,7 @@ export function ImportCSVModal({ onImport, modelType }: ImportCSVModalProps) {
         return
       }
 
-      const headers = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/"/g, ''))
+      const headers = lines[0].split(',').map((h) => mapFuzzyHeader(h.trim().replace(/"/g, '')))
 
       const parsed = lines.slice(1).map((line) => {
         const values = []
@@ -75,8 +81,10 @@ export function ImportCSVModal({ onImport, modelType }: ImportCSVModalProps) {
 
         const obj: any = {}
         headers.forEach((h, i) => {
-          let val = values[i] || ''
-          if (h === 'valor') val = parseFloat(val) as any
+          let val: any = values[i] || ''
+          if (h === 'valor') val = parseImportCurrency(val)
+          else if (h === 'data') val = parseImportDate(val)
+          else if (h === 'status') val = parseImportStatus(val)
           obj[h] = val
         })
         return obj
@@ -91,11 +99,10 @@ export function ImportCSVModal({ onImport, modelType }: ImportCSVModalProps) {
     setLoading(true)
     try {
       await onImport(preview)
-      toast.success('Dados importados com sucesso!')
       setOpen(false)
       setPreview([])
     } catch (e) {
-      toast.error('Erro ao importar arquivo.')
+      toast.error('Erro fatal ao processar importação.')
     } finally {
       setLoading(false)
     }
@@ -132,7 +139,7 @@ export function ImportCSVModal({ onImport, modelType }: ImportCSVModalProps) {
               className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
             />
             <p className="text-xs text-slate-500 mt-3">
-              O arquivo deve ser um CSV e conter as colunas:{' '}
+              O arquivo deve ser um CSV e conter as colunas equivalentes a:{' '}
               <strong>{expectedCols.join(', ')}</strong>.
             </p>
           </div>
@@ -160,7 +167,7 @@ export function ImportCSVModal({ onImport, modelType }: ImportCSVModalProps) {
                               col === 'valor' ? 'font-mono text-right' : 'max-w-[200px] truncate'
                             }
                           >
-                            {row[col]}
+                            {row[col] !== undefined ? row[col] : '-'}
                           </TableCell>
                         ))}
                       </TableRow>

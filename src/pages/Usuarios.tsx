@@ -80,12 +80,12 @@ export default function Usuarios() {
     }
 
     setIsSubmitting(true)
-    const senhaTemporaria = Math.random().toString(36).slice(-8) + 'Aa1!'
+    const senhaTemporaria = 'Senha123'
 
     try {
       await createUser({ name: nome, email, password: senhaTemporaria })
 
-      toast.success(`Usuário cadastrado. A senha temporária é: ${senhaTemporaria}`, {
+      toast.success(`Usuário cadastrado com a senha padrão: ${senhaTemporaria}`, {
         duration: 10000,
       })
 
@@ -183,8 +183,8 @@ export default function Usuarios() {
           <SheetHeader>
             <SheetTitle>Cadastrar Novo Usuário</SheetTitle>
             <SheetDescription>
-              Crie uma conta isolada para um novo membro da equipe. A senha gerada será exibida na
-              tela.
+              Crie uma conta isolada para um novo membro da equipe. A senha inicial será configurada
+              como "Senha123".
             </SheetDescription>
           </SheetHeader>
 

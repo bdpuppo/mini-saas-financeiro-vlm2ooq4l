@@ -15,10 +15,11 @@ import { VoiceEntryFormModal } from '@/components/VoiceEntryFormModal'
 import { getStatusClass, formatDate } from '@/utils/formatters'
 import { useSpeechRecognition } from '@/hooks/use-speech'
 import { Loader2, Plus, Pencil, Trash, Mic, MicOff } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 export default function Atividades() {
-  const { activities, isLoading, deleteActivity, addActivity } = useFinanceStore()
+  const { activities, isLoading, deleteActivity, addActivity, fetchData } = useFinanceStore()
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [editAct, setEditAct] = useState<Activity | null>(null)
 
@@ -34,14 +35,41 @@ export default function Atividades() {
   }
 
   const handleImportAtividades = async (data: any[]) => {
-    for (const row of data) {
-      await addActivity({
-        title: row.descricao || 'Atividade Importada',
-        activity_date: row.data || new Date().toISOString().split('T')[0],
-        status: row.status || 'Aguardando',
-        responsible: row.responsavel || '',
-      })
+    let successCount = 0
+    let errorCount = 0
+    const batch = data.slice(0, 500)
+
+    for (let i = 0; i < batch.length; i++) {
+      const row = batch[i]
+      try {
+        if (!row.data || !row.descricao) {
+          throw new Error('Campos obrigatórios ausentes')
+        }
+
+        await addActivity(
+          {
+            title: row.descricao,
+            activity_date: row.data,
+            status: row.status || 'Aguardando',
+            responsible: row.responsavel || '',
+          },
+          true,
+        )
+        successCount++
+      } catch (err) {
+        errorCount++
+        toast.error(`Linha ${i + 1}: ${err instanceof Error ? err.message : 'Falha ao salvar'}`)
+      }
     }
+
+    if (successCount > 0) {
+      toast.success(`${successCount}/${batch.length} atividades importadas com sucesso!`)
+    }
+    if (errorCount > 0) {
+      toast.error(`${errorCount} erros encontrados na importação.`)
+    }
+
+    await fetchData(true)
   }
 
   const handleVoice = () => {
