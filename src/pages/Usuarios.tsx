@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth, Profile } from '@/hooks/use-auth'
-import { supabase } from '@/lib/supabase/client'
+import pb from '@/lib/pocketbase/client'
 import { toast } from '@/hooks/use-toast'
 import {
   Table,
@@ -25,6 +25,7 @@ import {
   SheetDescription,
   SheetFooter,
 } from '@/components/ui/sheet'
+import { createUser } from '@/services/skipCloudService'
 
 export default function Usuarios() {
   const { profile, loading: authLoading } = useAuth()
@@ -39,12 +40,18 @@ export default function Usuarios() {
 
   const fetchUsers = async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (!error && data) {
-      setUsers(data as Profile[])
+    try {
+      const records = await pb.collection('users').getFullList({ sort: '-created' })
+      const mapped = records.map((u) => ({
+        id: u.id,
+        email: u.email,
+        full_name: u.name,
+        role: 'membro', // we default to member, could add role to schema if needed
+        is_active: u.verified,
+      }))
+      setUsers(mapped as Profile[])
+    } catch (e) {
+      console.error(e)
     }
     setLoading(false)
   }
@@ -62,7 +69,6 @@ export default function Usuarios() {
       </div>
     )
 
-  // Protect route
   if (profile?.role !== 'admin') {
     return <Navigate to="/" replace />
   }
@@ -75,19 +81,17 @@ export default function Usuarios() {
     }
 
     setIsSubmitting(true)
-    const senhaTemporaria = Math.random().toString(36).slice(-8) + 'Aa1!' // Simple random password
+    const senhaTemporaria = Math.random().toString(36).slice(-8) + 'Aa1!'
 
     try {
-      const { data, error } = await supabase.functions.invoke('enviar-email-confirmacao', {
-        body: { email, nome, senha: senhaTemporaria },
-      })
+      await createUser({ name: nome, email, password: senhaTemporaria })
 
-      if (error) throw new Error(error.message)
-      if (data?.error) throw new Error(data.error)
-
+      // Mock email sending since we don't have the explicit Edge Function here for emails,
+      // PB could trigger it via after create hooks, or we just notify admin.
       toast({
         title: 'Sucesso',
-        description: 'Usuário cadastrado. Um e-mail com as credenciais foi enviado.',
+        description: `Usuário cadastrado com sucesso. A senha temporária é: ${senhaTemporaria}`,
+        duration: 10000,
       })
 
       setIsDrawerOpen(false)
@@ -95,10 +99,12 @@ export default function Usuarios() {
       setEmail('')
       fetchUsers()
     } catch (err: any) {
-      console.error(err)
       toast({
         title: 'Erro ao criar usuário',
-        description: err.message || 'Falha na comunicação com o servidor.',
+        description:
+          err.message === 'conflict_email'
+            ? 'Este email já está em uso.'
+            : 'Falha na comunicação com o servidor.',
         variant: 'destructive',
       })
     } finally {
@@ -138,19 +144,18 @@ export default function Usuarios() {
                   <TableHead>Nome</TableHead>
                   <TableHead>E-mail</TableHead>
                   <TableHead>Perfil</TableHead>
-                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
+                    <TableCell colSpan={3} className="h-24 text-center">
                       <Loader2 className="animate-spin h-6 w-6 text-slate-400 mx-auto" />
                     </TableCell>
                   </TableRow>
                 ) : users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center text-slate-500">
+                    <TableCell colSpan={3} className="h-24 text-center text-slate-500">
                       Nenhum usuário encontrado.
                     </TableCell>
                   </TableRow>
@@ -172,20 +177,6 @@ export default function Usuarios() {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell>
-                        {u.is_active ? (
-                          <Badge
-                            variant="secondary"
-                            className="bg-green-100 text-green-800 hover:bg-green-100"
-                          >
-                            Ativo
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="bg-slate-100 text-slate-800">
-                            Inativo
-                          </Badge>
-                        )}
-                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -200,8 +191,8 @@ export default function Usuarios() {
           <SheetHeader>
             <SheetTitle>Cadastrar Novo Usuário</SheetTitle>
             <SheetDescription>
-              Crie uma conta para um novo membro da equipe. A senha será gerada e enviada por e-mail
-              automaticamente.
+              Crie uma conta isolada para um novo membro da equipe. A senha gerada será exibida na
+              tela.
             </SheetDescription>
           </SheetHeader>
 
@@ -232,10 +223,10 @@ export default function Usuarios() {
             </div>
 
             <div className="bg-blue-50 border border-blue-100 p-4 rounded-md text-sm text-blue-800">
-              <p className="font-semibold mb-1">Sobre as credenciais:</p>
+              <p className="font-semibold mb-1">Sobre o isolamento de dados:</p>
               <p>
-                O sistema enviará um e-mail de boas-vindas contendo uma senha segura gerada
-                automaticamente.
+                Os lançamentos, contas e atividades criadas por este usuário ficarão restritos e
+                acessíveis apenas por ele, garantindo total privacidade.
               </p>
             </div>
 
@@ -245,7 +236,7 @@ export default function Usuarios() {
               </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
-                Cadastrar e Enviar E-mail
+                Cadastrar Usuário
               </Button>
             </SheetFooter>
           </form>

@@ -1,4 +1,4 @@
-import { Bell, Search, User, LogOut } from 'lucide-react'
+import { Bell, Search, User, LogOut, Settings } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { SidebarTrigger } from '@/components/ui/sidebar'
@@ -12,10 +12,17 @@ import {
 } from '@/components/ui/dropdown-menu'
 import useFinanceStore from '@/stores/useFinanceStore'
 import { useAuth } from '@/hooks/use-auth'
+import { Link, useNavigate } from 'react-router-dom'
 
 export function Header() {
   const { toggleSkip } = useFinanceStore()
   const { profile, signOut } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    await signOut()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <header className="h-16 border-b bg-white flex items-center justify-between px-4 sticky top-0 z-30">
@@ -73,9 +80,15 @@ export function Header() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator className="block sm:hidden" />
+              <DropdownMenuItem asChild>
+                <Link to="/perfil" className="cursor-pointer">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Meu Perfil</span>
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => signOut()}
-                className="text-red-600 cursor-pointer focus:bg-red-50 focus:text-red-700"
+                onClick={handleLogout}
+                className="text-red-600 cursor-pointer focus:bg-red-50 focus:text-red-700 mt-1"
               >
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Sair</span>

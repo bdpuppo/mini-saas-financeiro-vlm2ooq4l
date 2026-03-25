@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import useFinanceStore, { Transaction } from '@/stores/useFinanceStore'
 import { TransactionTable } from '@/components/TransactionTable'
 import { TransactionFormDrawer } from '@/components/TransactionFormDrawer'
+import { ImportCSVModal } from '@/components/ImportCSVModal'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
@@ -17,7 +18,7 @@ import { normalizeString } from '@/utils/formatters'
 
 const getWeekOfMonth = (dateStr: string) => {
   if (!dateStr) return ''
-  const d = new Date(dateStr + 'T12:00:00') // Avoid timezone shifts by using midday
+  const d = new Date(dateStr + 'T12:00:00')
   return Math.ceil(d.getDate() / 7).toString()
 }
 
@@ -31,7 +32,9 @@ export default function Lancamentos() {
     categories,
     counterparties,
     costCenters,
+    addTransaction,
   } = useFinanceStore()
+
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [editTx, setEditTx] = useState<Transaction | null>(null)
   const [startVoiceRecording, setStartVoiceRecording] = useState(false)
@@ -118,6 +121,30 @@ export default function Lancamentos() {
     weekFilter,
   ])
 
+  const handleImport = async (data: any[]) => {
+    for (const row of data) {
+      let type =
+        filterType === 'entrada'
+          ? 'entrada'
+          : filterType === 'saida'
+            ? 'saida'
+            : Number(row.valor) >= 0
+              ? 'entrada'
+              : 'saida'
+      let status = filterType === 'all' ? 'realizado' : 'previsto'
+
+      await addTransaction({
+        date: row.data,
+        amount: Math.abs(Number(row.valor)),
+        category: row.categoria,
+        description: row.descricao,
+        entity: row.descricao || 'Desconhecido',
+        status: status,
+        type: type,
+      })
+    }
+  }
+
   const titles = {
     all: 'Lançamentos (Histórico)',
     entrada: 'Contas a Receber',
@@ -130,14 +157,16 @@ export default function Lancamentos() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">{titles[filterType]}</h1>
           <p className="text-slate-500 text-sm mt-1">
             Gerencie suas transações e acompanhe os status.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <ImportCSVModal onImport={handleImport} />
+
           {isSpeechSupported && (
             <Button
               variant="outline"
@@ -146,7 +175,7 @@ export default function Lancamentos() {
                 setIsDrawerOpen(true)
               }}
               disabled={isLoading}
-              className="hidden sm:flex text-primary hover:bg-primary/5 hover:text-primary border-primary/20"
+              className="text-primary hover:bg-primary/5 hover:text-primary border-primary/20"
             >
               <Mic className="h-4 w-4 mr-2" />
               Por Voz

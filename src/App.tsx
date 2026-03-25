@@ -12,6 +12,7 @@ import Atividades from '@/pages/Atividades'
 import Usuarios from '@/pages/Usuarios'
 import NotFound from '@/pages/NotFound'
 import Login from '@/pages/Login'
+import Perfil from '@/pages/Perfil'
 import { Loader2 } from 'lucide-react'
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -45,6 +46,7 @@ const AppRoutes = () => {
         <Route path="/pagar" element={<Lancamentos />} />
         <Route path="/atividades" element={<Atividades />} />
         <Route path="/usuarios" element={<Usuarios />} />
+        <Route path="/perfil" element={<Perfil />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>

@@ -23,6 +23,10 @@ export default function Login() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showRetry, setShowRetry] = useState(false)
 
+  const [showForgot, setShowForgot] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [isForgotLoading, setIsForgotLoading] = useState(false)
+
   // Validation States
   const [nameTouched, setNameTouched] = useState(false)
   const [emailTouched, setEmailTouched] = useState(false)
@@ -32,11 +36,12 @@ export default function Login() {
   const [emailErrorMsg, setEmailErrorMsg] = useState('')
   const [passwordErrorMsg, setPasswordErrorMsg] = useState('')
 
-  const { signIn, session, loading } = useAuth()
+  const { signIn, session, loading, requestPasswordReset } = useAuth()
 
   useEffect(() => {
     const tab = location.pathname === '/cadastro' ? 'register' : 'login'
     setActiveTab(tab)
+    setShowForgot(false)
   }, [location.pathname])
 
   const validateName = (val: string) => {
@@ -75,6 +80,7 @@ export default function Login() {
 
   const handleTabChange = (val: string) => {
     setActiveTab(val)
+    setShowForgot(false)
     if (val === 'register') {
       navigate('/cadastro', { replace: true })
     } else {
@@ -150,6 +156,25 @@ export default function Login() {
     }
   }
 
+  const handleForgotPass = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!forgotEmail) return
+    setIsForgotLoading(true)
+    try {
+      await requestPasswordReset(forgotEmail)
+      toast({ title: 'Email enviado', description: 'Instruções enviadas para seu e-mail.' })
+      setShowForgot(false)
+    } catch (e) {
+      toast({
+        title: 'Erro',
+        description: 'Falha ao solicitar redefinição.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsForgotLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 animate-fade-in">
       <Card className="w-full max-w-sm border-slate-200 shadow-md">
@@ -167,32 +192,72 @@ export default function Login() {
             </TabsList>
 
             <TabsContent value="login" className="space-y-4">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
+              {showForgot ? (
+                <form onSubmit={handleForgotPass} className="space-y-4 animate-in fade-in">
+                  <p className="text-sm text-slate-500 text-center mb-4">
+                    Informe seu e-mail para receber um link de redefinição de senha.
+                  </p>
                   <Input
                     type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
                     required
                     placeholder="E-mail"
                     className="bg-white"
                   />
-                </div>
-                <div className="space-y-2">
-                  <Input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    placeholder="Senha"
-                    className="bg-white"
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Entrar
-                </Button>
-              </form>
+                  <div className="space-y-2 mt-4">
+                    <Button type="submit" className="w-full" disabled={isForgotLoading}>
+                      {isForgotLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}{' '}
+                      Enviar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full"
+                      onClick={() => setShowForgot(false)}
+                    >
+                      Voltar
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <form onSubmit={handleLogin} className="space-y-4 animate-in fade-in">
+                  <div className="space-y-2">
+                    <Input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      placeholder="E-mail"
+                      className="bg-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      placeholder="Senha"
+                      className="bg-white"
+                    />
+                  </div>
+                  <div className="flex justify-end mt-1">
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="px-0 text-xs text-primary h-auto py-1"
+                      onClick={() => setShowForgot(true)}
+                    >
+                      Esqueci a Senha
+                    </Button>
+                  </div>
+                  <Button type="submit" className="w-full mt-2" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Entrar
+                  </Button>
+                </form>
+              )}
             </TabsContent>
 
             <TabsContent value="register" className="space-y-4">

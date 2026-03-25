@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase/client'
-import { useAuth } from '@/hooks/use-auth'
+import pb from '@/lib/pocketbase/client'
 import { toast } from '@/hooks/use-toast'
 import { normalizeString, extractDate } from '@/utils/formatters'
 
@@ -39,6 +38,8 @@ export interface Activity {
   responsible?: string | null
   percentage?: number
   notes?: string | null
+  type?: string
+  content?: string
 }
 
 interface FinanceStoreContext {
@@ -70,47 +71,6 @@ interface FinanceStoreContext {
 
 export const FinanceContext = createContext<FinanceStoreContext | null>(null)
 
-const mapFT = (t: any): Transaction => ({
-  id: t.id,
-  date: extractDate(t.transaction_date),
-  type: t.type,
-  status: t.nature,
-  amount: Number(t.amount),
-  entity: t.counterparties?.name?.trim() || 'Desconhecido',
-  description: t.description || '',
-  category: t.financial_categories?.name?.trim() || 'Sem Categoria',
-  costCenter: t.cost_centers?.name?.trim() || 'Geral',
-  rawSource: 'ft',
-})
-
-const mapAP = (t: any): Transaction => ({
-  id: t.id,
-  date: extractDate(t.expected_date),
-  paid_date: extractDate(t.paid_date),
-  type: 'saida',
-  status: t.status,
-  amount: Number(t.amount),
-  entity: t.counterparties?.name?.trim() || 'Desconhecido',
-  description: t.description || '',
-  category: t.financial_categories?.name?.trim() || 'Sem Categoria',
-  costCenter: t.cost_centers?.name?.trim() || 'Geral',
-  rawSource: 'ap',
-})
-
-const mapAR = (t: any): Transaction => ({
-  id: t.id,
-  date: extractDate(t.expected_date),
-  received_date: extractDate(t.received_date),
-  type: 'entrada',
-  status: t.status,
-  amount: Number(t.amount),
-  entity: t.counterparties?.name?.trim() || 'Desconhecido',
-  description: t.description || '',
-  category: t.financial_categories?.name?.trim() || 'Sem Categoria',
-  costCenter: t.cost_centers?.name?.trim() || 'Geral',
-  rawSource: 'ar',
-})
-
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isSkipOpen, setIsSkipOpen] = useState(false)
@@ -131,89 +91,169 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const [counterparties, setCounterparties] = useState<any[]>([])
   const [costCenters, setCostCenters] = useState<any[]>([])
 
-  const { session } = useAuth()
-
   useEffect(() => {
-    if (session?.user) fetchData()
-    else {
-      setTransactionsFT([])
-      setTransactionsAP([])
-      setTransactionsAR([])
-      setActivities([])
-      setCashflowSnapshots([])
+    const unsubscribe = pb.authStore.onChange((token, record) => {
+      if (record) fetchData()
+      else {
+        setTransactionsFT([])
+        setTransactionsAP([])
+        setTransactionsAR([])
+        setActivities([])
+      }
+    })
+
+    if (pb.authStore.record) fetchData()
+
+    return () => unsubscribe()
+  }, [])
+
+  const calculateSummaries = (
+    ft: Transaction[],
+    ap: Transaction[],
+    ar: Transaction[],
+    act: Activity[],
+  ) => {
+    const summaryMap = new Map<string, any>()
+
+    const ensureMonth = (dateStr: string) => {
+      if (!dateStr) return null
+      const month = dateStr.substring(0, 7) + '-01'
+      if (!summaryMap.has(month)) {
+        summaryMap.set(month, {
+          reference_date: month,
+          entrada_realizada: 0,
+          saida_realizada: 0,
+          entrada_prevista: 0,
+          saida_prevista: 0,
+        })
+      }
+      return summaryMap.get(month)
     }
-  }, [session?.user])
+
+    ft.forEach((t) => {
+      const s = ensureMonth(t.date)
+      if (s && t.status === 'realizado') {
+        if (t.type === 'entrada') s.entrada_realizada += t.amount
+        else s.saida_realizada += t.amount
+      }
+    })
+
+    ar.forEach((t) => {
+      const s = ensureMonth(t.date)
+      if (s && (t.status === 'previsto' || t.status === 'recebido')) {
+        if (t.status === 'previsto') s.entrada_prevista += t.amount
+        else s.entrada_realizada += t.amount
+      }
+    })
+
+    ap.forEach((t) => {
+      const s = ensureMonth(t.date)
+      if (s && (t.status === 'previsto' || t.status === 'pago')) {
+        if (t.status === 'previsto') s.saida_prevista += t.amount
+        else s.saida_realizada += t.amount
+      }
+    })
+
+    setFinancialSummary(Array.from(summaryMap.values()))
+    setCashflowSnapshots(Array.from(summaryMap.values()))
+    setCashBreakpoint({ rupture_date: null, risk_level: 'Seguro' })
+    setActivitySummary([])
+    setExpensesByCategory([])
+
+    const cats = Array.from(
+      new Set([...ft, ...ap, ...ar].map((t) => t.category).filter(Boolean)),
+    ).map((name, i) => ({ id: i.toString(), name }))
+    const ents = Array.from(
+      new Set([...ft, ...ap, ...ar].map((t) => t.entity).filter(Boolean)),
+    ).map((name, i) => ({ id: i.toString(), name }))
+
+    setCategories(cats)
+    setCounterparties(ents)
+  }
 
   const fetchData = async (background = false) => {
     if (!background) setIsLoading(true)
     try {
-      const [
-        resFinSummary,
-        resCashBreakpoint,
-        resActSummary,
-        resExpCategory,
-        resFinTx,
-        resAp,
-        resAr,
-        resAct,
-        resCat,
-        resCount,
-        resCc,
-        resSnapshots,
-      ] = await Promise.all([
-        supabase
-          .from('v_financial_summary')
-          .select('*')
-          .order('reference_date', { ascending: false }),
-        supabase.from('v_cash_breakpoint').select('*').limit(1).maybeSingle(),
-        supabase
-          .from('v_activity_summary')
-          .select('*')
-          .order('reference_date', { ascending: false }),
-        supabase.from('v_expenses_by_category').select('*'),
-        supabase
-          .from('financial_transactions')
-          .select(`*, counterparties(name), financial_categories(name), cost_centers(name)`)
-          .order('transaction_date', { ascending: false }),
-        supabase
-          .from('accounts_payable')
-          .select(`*, counterparties(name), financial_categories(name), cost_centers(name)`)
-          .order('expected_date', { ascending: false }),
-        supabase
-          .from('accounts_receivable')
-          .select(`*, counterparties(name), financial_categories(name), cost_centers(name)`)
-          .order('expected_date', { ascending: false }),
-        supabase.from('activities').select('*').order('activity_date', { ascending: false }),
-        supabase.from('financial_categories').select('*'),
-        supabase.from('counterparties').select('*'),
-        supabase.from('cost_centers').select('*'),
-        supabase
-          .from('cashflow_snapshots')
-          .select('*')
-          .order('reference_date', { ascending: false }),
+      const userId = pb.authStore.record?.id
+      if (!userId) return
+
+      const filter = `user_id="${userId}"`
+
+      const [resFinTx, resAp, resAr, resAct] = await Promise.all([
+        pb.collection('lancamentos').getFullList({ filter, sort: '-date' }),
+        pb.collection('contas_pagar').getFullList({ filter, sort: '-due_date' }),
+        pb.collection('contas_receber').getFullList({ filter, sort: '-due_date' }),
+        pb.collection('atividades').getFullList({ filter, sort: '-activity_date' }),
       ])
 
-      if (resFinSummary.data) setFinancialSummary(resFinSummary.data)
-      if (resCashBreakpoint.data) setCashBreakpoint(resCashBreakpoint.data)
-      if (resActSummary.data) setActivitySummary(resActSummary.data)
-      if (resExpCategory.data) setExpensesByCategory(resExpCategory.data)
+      const mappedFT = resFinTx.map(
+        (t: any): Transaction => ({
+          id: t.id,
+          date: extractDate(t.date),
+          type: t.type || (t.amount >= 0 ? 'entrada' : 'saida'),
+          status: t.status || 'realizado',
+          amount: Number(t.amount),
+          entity: t.description?.split(' ')[0] || 'Desconhecido',
+          description: t.description || '',
+          category: t.category || 'Sem Categoria',
+          costCenter: 'Geral',
+          rawSource: 'ft',
+        }),
+      )
 
-      if (resFinTx.data) setTransactionsFT(resFinTx.data.map(mapFT))
-      if (resAp.data) setTransactionsAP(resAp.data.map(mapAP))
-      if (resAr.data) setTransactionsAR(resAr.data.map(mapAR))
-      if (resAct.data) setActivities(resAct.data as Activity[])
+      const mappedAP = resAp.map(
+        (t: any): Transaction => ({
+          id: t.id,
+          date: extractDate(t.due_date),
+          type: 'saida',
+          status: t.status || 'previsto',
+          amount: Number(t.amount),
+          entity: t.description?.split(' ')[0] || 'Desconhecido',
+          description: t.description || '',
+          category: t.category || 'Sem Categoria',
+          costCenter: 'Geral',
+          rawSource: 'ap',
+        }),
+      )
 
-      if (resCat.data) setCategories(resCat.data)
-      if (resCount.data) setCounterparties(resCount.data)
-      if (resCc.data) setCostCenters(resCc.data)
-      if (resSnapshots.data) setCashflowSnapshots(resSnapshots.data)
+      const mappedAR = resAr.map(
+        (t: any): Transaction => ({
+          id: t.id,
+          date: extractDate(t.due_date),
+          type: 'entrada',
+          status: t.status || 'previsto',
+          amount: Number(t.amount),
+          entity: t.description?.split(' ')[0] || 'Desconhecido',
+          description: t.description || '',
+          category: t.category || 'Sem Categoria',
+          costCenter: 'Geral',
+          rawSource: 'ar',
+        }),
+      )
+
+      const mappedAct = resAct.map(
+        (t: any): Activity => ({
+          id: t.id,
+          activity_date: extractDate(t.activity_date || t.created),
+          title: t.title || t.content || 'Atividade',
+          status: t.status || 'OK',
+          responsible: t.responsible || '',
+          percentage: t.percentage || 0,
+          notes: t.notes || '',
+          type: t.type,
+          content: t.content,
+        }),
+      )
+
+      setTransactionsFT(mappedFT)
+      setTransactionsAP(mappedAP)
+      setTransactionsAR(mappedAR)
+      setActivities(mappedAct)
+
+      calculateSummaries(mappedFT, mappedAP, mappedAR, mappedAct)
     } catch (err) {
       console.error('Error fetching data:', err)
-      toast({
-        title: 'Erro',
-        description: 'Falha ao carregar dados.',
-        variant: 'destructive',
-      })
+      toast({ title: 'Erro', description: 'Falha ao carregar dados.', variant: 'destructive' })
     } finally {
       if (!background) setIsLoading(false)
     }
@@ -221,61 +261,38 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   const toggleSkip = () => setIsSkipOpen(!isSkipOpen)
 
-  const getOrCreateRefs = async (categoryName: string, entityName: string) => {
-    const normCat = normalizeString(categoryName)
-    const normEnt = normalizeString(entityName)
-
-    let categoryId = categories.find((c) => normalizeString(c.name) === normCat)?.id
-    if (!categoryId && categoryName) {
-      const { data } = await supabase
-        .from('financial_categories')
-        .insert({ name: categoryName.trim() })
-        .select()
-        .single()
-      if (data) categoryId = data.id
-    }
-
-    let counterpartyId = counterparties.find((c) => normalizeString(c.name) === normEnt)?.id
-    if (!counterpartyId && entityName) {
-      const { data } = await supabase
-        .from('counterparties')
-        .insert({ name: entityName.trim(), type: 'outro' })
-        .select()
-        .single()
-      if (data) counterpartyId = data.id
-    }
-    return { categoryId, counterpartyId }
-  }
-
   const addTransaction = async (t: any) => {
     setIsLoading(true)
     try {
-      const { categoryId, counterpartyId } = await getOrCreateRefs(t.category, t.entity)
-      let table = 'financial_transactions'
-      let payload: any = { description: t.description, amount: t.amount, category_id: categoryId }
+      const userId = pb.authStore.record?.id
+      if (!userId) throw new Error('User not logged in')
+
+      let table = 'lancamentos'
+      let payload: any = {
+        user_id: userId,
+        amount: t.amount,
+        category: t.category || 'Geral',
+        description: t.description || t.entity || '',
+      }
 
       if (t.status === 'previsto') {
         if (t.type === 'entrada') {
-          table = 'accounts_receivable'
-          payload.expected_date = t.date
-          payload.customer_id = counterpartyId
+          table = 'contas_receber'
+          payload.due_date = t.date + ' 12:00:00.000Z'
           payload.status = 'previsto'
         } else {
-          table = 'accounts_payable'
-          payload.expected_date = t.date
-          payload.supplier_id = counterpartyId
+          table = 'contas_pagar'
+          payload.due_date = t.date + ' 12:00:00.000Z'
           payload.status = 'previsto'
         }
       } else {
-        table = 'financial_transactions'
-        payload.transaction_date = t.date
+        table = 'lancamentos'
+        payload.date = t.date + ' 12:00:00.000Z'
         payload.type = t.type
-        payload.nature = 'realizado'
-        payload.counterparty_id = counterpartyId
+        payload.status = 'realizado'
       }
 
-      const { error } = await supabase.from(table).insert(payload)
-      if (error) throw error
+      await pb.collection(table).create(payload)
       await fetchData()
     } catch (err) {
       console.error(err)
@@ -288,32 +305,20 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const updateTransaction = async (id: string, t: any, rawSource?: string) => {
     setIsLoading(true)
     try {
-      const { categoryId, counterpartyId } = await getOrCreateRefs(t.category, t.entity)
       let table =
-        rawSource === 'ap'
-          ? 'accounts_payable'
-          : rawSource === 'ar'
-            ? 'accounts_receivable'
-            : 'financial_transactions'
-      let payload: any = { description: t.description, amount: t.amount, category_id: categoryId }
+        rawSource === 'ap' ? 'contas_pagar' : rawSource === 'ar' ? 'contas_receber' : 'lancamentos'
+      let payload: any = { amount: t.amount, category: t.category, description: t.description }
 
-      if (rawSource === 'ap') {
-        payload.expected_date = t.date
-        payload.supplier_id = counterpartyId
-        payload.status = t.status
-      } else if (rawSource === 'ar') {
-        payload.expected_date = t.date
-        payload.customer_id = counterpartyId
+      if (rawSource === 'ap' || rawSource === 'ar') {
+        payload.due_date = t.date + ' 12:00:00.000Z'
         payload.status = t.status
       } else {
-        payload.transaction_date = t.date
+        payload.date = t.date + ' 12:00:00.000Z'
         payload.type = t.type
-        payload.nature = t.status
-        payload.counterparty_id = counterpartyId
+        payload.status = t.status
       }
 
-      const { error } = await supabase.from(table).update(payload).eq('id', id)
-      if (error) throw error
+      await pb.collection(table).update(id, payload)
       await fetchData()
     } catch (err) {
       console.error(err)
@@ -325,12 +330,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   const updateTransactionStatus = async (id: string, status: string, rawSource?: string) => {
     let table =
-      rawSource === 'ap'
-        ? 'accounts_payable'
-        : rawSource === 'ar'
-          ? 'accounts_receivable'
-          : 'financial_transactions'
-    let col = rawSource === 'ap' || rawSource === 'ar' ? 'status' : 'nature'
+      rawSource === 'ap' ? 'contas_pagar' : rawSource === 'ar' ? 'contas_receber' : 'lancamentos'
     let finalStatus =
       rawSource === 'ap'
         ? status === 'realizado'
@@ -342,32 +342,40 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
             : 'previsto'
           : status
 
-    const { error } = await supabase
-      .from(table)
-      .update({ [col]: finalStatus })
-      .eq('id', id)
-    if (!error) await fetchData()
-    else
+    try {
+      await pb.collection(table).update(id, { status: finalStatus })
+      await fetchData()
+    } catch (e) {
       toast({
         title: 'Erro',
         description: 'Não foi possível atualizar o status.',
         variant: 'destructive',
       })
+    }
   }
 
   const addActivity = async (payload: Partial<Activity>) => {
     setIsLoading(true)
     try {
-      const { error } = await supabase.from('activities').insert(payload)
-      if (error) throw error
+      const userId = pb.authStore.record?.id
+      if (!userId) throw new Error('User not logged in')
+
+      await pb.collection('atividades').create({
+        user_id: userId,
+        activity_date:
+          (payload.activity_date || new Date().toISOString().split('T')[0]) + ' 12:00:00.000Z',
+        title: payload.title || 'Nova Atividade',
+        status: payload.status || 'OK',
+        responsible: payload.responsible || '',
+        percentage: payload.percentage || 0,
+        notes: payload.notes || '',
+        type: payload.type || 'tarefa',
+        content: payload.content || '',
+      })
       await fetchData()
     } catch (err) {
       console.error(err)
-      toast({
-        title: 'Erro',
-        description: 'Falha ao adicionar atividade.',
-        variant: 'destructive',
-      })
+      toast({ title: 'Erro', description: 'Falha ao adicionar atividade.', variant: 'destructive' })
       throw err
     } finally {
       setIsLoading(false)
@@ -376,20 +384,12 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   const updateActivity = async (id: string, partial: Partial<Activity>) => {
     try {
-      const { error } = await supabase.from('activities').update(partial).eq('id', id)
-      if (error) throw error
-      toast({
-        title: 'Sucesso',
-        description: 'Atividade atualizada.',
-        variant: 'default',
-      })
+      await pb.collection('atividades').update(id, partial)
+      toast({ title: 'Sucesso', description: 'Atividade atualizada.', variant: 'default' })
+      await fetchData(true)
     } catch (err) {
       console.error(err)
-      toast({
-        title: 'Erro',
-        description: 'Falha ao atualizar atividade.',
-        variant: 'destructive',
-      })
+      toast({ title: 'Erro', description: 'Falha ao atualizar atividade.', variant: 'destructive' })
       throw err
     }
   }
@@ -397,21 +397,12 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
   const deleteActivity = async (id: string) => {
     setIsLoading(true)
     try {
-      const { error } = await supabase.from('activities').delete().eq('id', id)
-      if (error) throw error
+      await pb.collection('atividades').delete(id)
       await fetchData()
-      toast({
-        title: 'Sucesso',
-        description: 'Atividade excluída.',
-        variant: 'default',
-      })
+      toast({ title: 'Sucesso', description: 'Atividade excluída.', variant: 'default' })
     } catch (err) {
       console.error(err)
-      toast({
-        title: 'Erro',
-        description: 'Falha ao excluir atividade.',
-        variant: 'destructive',
-      })
+      toast({ title: 'Erro', description: 'Falha ao excluir atividade.', variant: 'destructive' })
       throw err
     } finally {
       setIsLoading(false)

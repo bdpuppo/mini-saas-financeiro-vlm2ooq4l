@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import useFinanceStore, { Activity } from '@/stores/useFinanceStore'
 import {
   Table,
@@ -11,14 +11,22 @@ import {
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { ActivityFormDrawer } from '@/components/ActivityFormDrawer'
+import { ImportCSVModal } from '@/components/ImportCSVModal'
+import { VoiceEntryFormModal } from '@/components/VoiceEntryFormModal'
 import { getStatusClass, formatDate } from '@/utils/formatters'
-import { Loader2, Plus, Pencil, Trash } from 'lucide-react'
+import { useSpeechRecognition } from '@/hooks/use-speech'
+import { Loader2, Plus, Pencil, Trash, Mic, MicOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export default function Atividades() {
-  const { activities, isLoading, deleteActivity } = useFinanceStore()
+  const { activities, isLoading, deleteActivity, addActivity } = useFinanceStore()
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [editAct, setEditAct] = useState<Activity | null>(null)
+
+  const { isListening, transcript, startListening, stopListening, supported, setTranscript } =
+    useSpeechRecognition()
+  const [showVoiceModal, setShowVoiceModal] = useState(false)
+  const [voiceData, setVoiceData] = useState<any>(null)
 
   const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir esta atividade?')) {
@@ -26,23 +34,81 @@ export default function Atividades() {
     }
   }
 
+  const handleImportAtividades = async (data: any[]) => {
+    for (const row of data) {
+      await addActivity({
+        title: row.descricao || row.categoria || 'Importado via CSV',
+        activity_date: row.data,
+        status: 'OK',
+        type: 'importação',
+        content: JSON.stringify(row),
+      })
+    }
+  }
+
+  const handleVoice = () => {
+    if (isListening) stopListening()
+    else startListening()
+  }
+
+  useEffect(() => {
+    if (transcript && !isListening) {
+      const tLower = transcript.toLowerCase()
+      const type = tLower.includes('lançamento') ? 'lançamento' : 'atividade'
+
+      const amountMatch = transcript.match(/\d+(?:,\d+)?/)
+      const amount = amountMatch ? amountMatch[0].replace(',', '.') : ''
+
+      let category = 'Geral'
+      const words = tLower.split(' ')
+      if (words.length > 2) category = words[words.length - 1] // highly naive fallback
+
+      setVoiceData({
+        type,
+        amount,
+        category,
+        dateStr: new Date().toISOString().split('T')[0],
+      })
+      setShowVoiceModal(true)
+      setTranscript('')
+    }
+  }, [transcript, isListening, setTranscript])
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Lista de Atividades</h1>
           <p className="text-slate-500 text-sm mt-1">
-            Acompanhamento operacional de tarefas e status da equipe.
+            Acompanhamento operacional de tarefas, logs e registros de voz.
           </p>
         </div>
-        <Button
-          onClick={() => setIsDrawerOpen(true)}
-          className="bg-primary shadow-sm"
-          disabled={isLoading && activities.length === 0}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Nova Atividade
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <ImportCSVModal onImport={handleImportAtividades} />
+
+          {supported && (
+            <Button
+              onClick={handleVoice}
+              variant={isListening ? 'destructive' : 'outline'}
+              className={cn(
+                'transition-colors',
+                isListening ? 'animate-pulse' : 'text-primary border-primary/20 hover:bg-primary/5',
+              )}
+            >
+              {isListening ? <MicOff className="h-4 w-4 mr-2" /> : <Mic className="h-4 w-4 mr-2" />}
+              {isListening ? 'Ouvindo...' : 'Inserir por Voz'}
+            </Button>
+          )}
+
+          <Button
+            onClick={() => setIsDrawerOpen(true)}
+            className="bg-primary shadow-sm"
+            disabled={isLoading && activities.length === 0}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Atividade
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-md border bg-white shadow-subtle overflow-hidden">
@@ -50,11 +116,11 @@ export default function Atividades() {
           <TableHeader className="bg-slate-50">
             <TableRow>
               <TableHead className="w-[100px]">Data</TableHead>
-              <TableHead>Atividade</TableHead>
+              <TableHead>Atividade / Título</TableHead>
               <TableHead>Responsável</TableHead>
+              <TableHead>Tipo</TableHead>
               <TableHead className="w-[130px]">Status</TableHead>
-              <TableHead className="w-[120px]">Progresso</TableHead>
-              <TableHead className="max-w-[200px]">Notas</TableHead>
+              <TableHead className="max-w-[200px]">Conteúdo / Notas</TableHead>
               <TableHead className="w-[90px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -82,6 +148,9 @@ export default function Atividades() {
                   </TableCell>
                   <TableCell className="font-medium text-slate-800">{act.title}</TableCell>
                   <TableCell className="text-slate-600">{act.responsible || '-'}</TableCell>
+                  <TableCell className="text-slate-600 capitalize">
+                    {act.type || 'Tarefa'}
+                  </TableCell>
                   <TableCell>
                     <div
                       className={cn(
@@ -92,19 +161,11 @@ export default function Atividades() {
                       {act.status}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div className="w-full flex items-center gap-2">
-                      <Progress value={act.percentage || 0} className="h-2 flex-1" />
-                      <span className="text-xs text-slate-500 font-medium w-8 text-right">
-                        {act.percentage || 0}%
-                      </span>
-                    </div>
-                  </TableCell>
                   <TableCell
                     className="max-w-[200px] truncate text-slate-500 italic"
-                    title={act.notes || ''}
+                    title={act.content || act.notes || ''}
                   >
-                    {act.notes || '-'}
+                    {act.content || act.notes || '-'}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -140,6 +201,12 @@ export default function Atividades() {
           if (!val) setEditAct(null)
         }}
         editItem={editAct}
+      />
+
+      <VoiceEntryFormModal
+        open={showVoiceModal}
+        onOpenChange={setShowVoiceModal}
+        initialData={voiceData}
       />
     </div>
   )

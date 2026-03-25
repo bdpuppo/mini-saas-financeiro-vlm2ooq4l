@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   Wallet,
@@ -8,6 +8,7 @@ import {
   Lightbulb,
   Users,
   LogOut,
+  Settings,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -27,6 +28,7 @@ export function AppSidebar() {
   const location = useLocation()
   const { toggleSkip } = useFinanceStore()
   const { profile, signOut } = useAuth()
+  const navigate = useNavigate()
 
   const navItems = [
     { title: 'Dashboard', url: '/', icon: LayoutDashboard },
@@ -39,6 +41,11 @@ export function AppSidebar() {
 
   if (profile?.role === 'admin') {
     navItems.push({ title: 'Usuários', url: '/usuarios', icon: Users })
+  }
+
+  const handleLogout = async () => {
+    await signOut()
+    navigate('/login', { replace: true })
   }
 
   return (
@@ -75,9 +82,17 @@ export function AppSidebar() {
         <SidebarGroup className="mt-auto">
           <SidebarMenu>
             <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={location.pathname === '/perfil'}>
+                <Link to="/perfil" className="text-slate-600 hover:text-slate-900">
+                  <Settings className="h-4 w-4" />
+                  <span>Meu Perfil</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
               <SidebarMenuButton
                 onClick={toggleSkip}
-                className="bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary mb-2"
+                className="bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary my-1"
               >
                 <Lightbulb className="h-4 w-4" />
                 <span className="font-medium">SKIP Intelligence</span>
@@ -85,7 +100,7 @@ export function AppSidebar() {
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
-                onClick={() => signOut()}
+                onClick={handleLogout}
                 className="text-slate-500 hover:text-red-600 hover:bg-red-50"
               >
                 <LogOut className="h-4 w-4" />
