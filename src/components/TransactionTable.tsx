@@ -14,7 +14,7 @@ import { CheckCircle, Lightbulb, Pencil } from 'lucide-react'
 import { Transaction } from '@/stores/useFinanceStore'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import useFinanceStore from '@/stores/useFinanceStore'
-import { toast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -45,10 +45,7 @@ export function TransactionTable({ transactions, onEdit, isLoading }: Props) {
       if (tx) updateTransactionStatus(id, 'realizado', tx.rawSource)
     })
     setSelectedIds(new Set())
-    toast({
-      title: 'Atualização em Lote',
-      description: `${selectedIds.size} lançamentos marcados como Realizado.`,
-    })
+    toast.success(`${selectedIds.size} lançamentos marcados como Realizado.`)
   }
 
   return (
@@ -106,13 +103,19 @@ export function TransactionTable({ transactions, onEdit, isLoading }: Props) {
                       <Checkbox
                         checked={selectedIds.has(tx.id)}
                         onCheckedChange={(c) => handleSelectOne(tx.id, !!c)}
+                        disabled={tx.rawSource === 'ft'}
                       />
                     </TableCell>
                     <TableCell className="font-medium text-slate-600">
                       {formatDate(tx.date)}
                     </TableCell>
                     <TableCell className="font-medium">{tx.entity}</TableCell>
-                    <TableCell className="text-slate-600">{tx.description}</TableCell>
+                    <TableCell
+                      className="text-slate-600 max-w-[200px] truncate"
+                      title={tx.description}
+                    >
+                      {tx.description}
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="font-normal">
                         {tx.category}
@@ -127,8 +130,10 @@ export function TransactionTable({ transactions, onEdit, isLoading }: Props) {
                             tx.rawSource,
                           )
                         }
+                        disabled={tx.rawSource === 'ft'}
                         className={cn(
                           'px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors inline-flex items-center',
+                          tx.rawSource === 'ft' && 'opacity-80 cursor-default',
                           isDone
                             ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200'
                             : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200',

@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           id: pb.authStore.record.id,
           email: pb.authStore.record.email,
           full_name: pb.authStore.record.name || 'Usuário',
-          role: 'admin',
+          role: 'admin', // Everyone gets admin initially since role logic is limited, can be enhanced
           is_active: true,
         })
       } else {

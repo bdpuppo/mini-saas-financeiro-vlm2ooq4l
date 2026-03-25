@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { Toaster } from '@/components/ui/toaster'
-import { Toaster as Sonner } from '@/components/ui/sonner'
+import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { FinanceProvider } from '@/stores/useFinanceStore'
 import { AuthProvider, useAuth } from '@/hooks/use-auth'
@@ -15,7 +14,7 @@ import Login from '@/pages/Login'
 import Perfil from '@/pages/Perfil'
 import { Loader2 } from 'lucide-react'
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+const RequireAuth = ({ children }: { children: React.ReactNode }) => {
   const { session, loading } = useAuth()
   if (loading)
     return (
@@ -34,9 +33,11 @@ const AppRoutes = () => {
       <Route path="/cadastro" element={<Login />} />
       <Route
         element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
+          <RequireAuth>
+            <FinanceProvider>
+              <Layout />
+            </FinanceProvider>
+          </RequireAuth>
         }
       >
         <Route path="/" element={<Index />} />
@@ -56,13 +57,10 @@ const AppRoutes = () => {
 const App = () => (
   <BrowserRouter future={{ v7_startTransition: false, v7_relativeSplatPath: false }}>
     <AuthProvider>
-      <FinanceProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <AppRoutes />
-        </TooltipProvider>
-      </FinanceProvider>
+      <TooltipProvider>
+        <Toaster position="top-right" richColors />
+        <AppRoutes />
+      </TooltipProvider>
     </AuthProvider>
   </BrowserRouter>
 )

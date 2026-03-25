@@ -128,17 +128,22 @@ export default function Lancamentos() {
           ? 'entrada'
           : filterType === 'saida'
             ? 'saida'
-            : Number(row.valor) >= 0
-              ? 'entrada'
-              : 'saida'
-      let status = filterType === 'all' ? 'realizado' : 'previsto'
+            : row.tipo?.toLowerCase() || (Number(row.valor) >= 0 ? 'entrada' : 'saida')
+
+      let status = filterType === 'all' ? 'realizado' : row.status?.toLowerCase() || 'previsto'
+      let entity =
+        filterType === 'entrada'
+          ? row.cliente
+          : filterType === 'saida'
+            ? row.favorecido
+            : row.descricao
 
       await addTransaction({
-        date: row.data,
-        amount: Math.abs(Number(row.valor)),
-        category: row.categoria,
-        description: row.descricao,
-        entity: row.descricao || 'Desconhecido',
+        date: row.data || new Date().toISOString().split('T')[0],
+        amount: Math.abs(Number(row.valor)) || 0,
+        category: row.categoria || 'Geral',
+        description: row.descricao || '',
+        entity: entity || 'Desconhecido',
         status: status,
         type: type,
       })
@@ -165,7 +170,7 @@ export default function Lancamentos() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <ImportCSVModal onImport={handleImport} />
+          <ImportCSVModal onImport={handleImport} modelType={filterType} />
 
           {isSpeechSupported && (
             <Button

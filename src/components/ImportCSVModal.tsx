@@ -16,27 +16,34 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { toast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 
 interface ImportCSVModalProps {
   onImport: (data: any[]) => Promise<void>
+  modelType: string
 }
 
-export function ImportCSVModal({ onImport }: ImportCSVModalProps) {
+export function ImportCSVModal({ onImport, modelType }: ImportCSVModalProps) {
   const [open, setOpen] = useState(false)
   const [preview, setPreview] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+
+  const expectedCols =
+    (
+      {
+        all: ['data', 'descricao', 'categoria', 'valor', 'tipo'],
+        saida: ['data', 'favorecido', 'categoria', 'descricao', 'valor', 'status'],
+        entrada: ['data', 'cliente', 'categoria', 'descricao', 'valor', 'status'],
+        atividades: ['data', 'descricao', 'status', 'responsavel'],
+      } as Record<string, string[]>
+    )[modelType] || []
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
     if (file.name.endsWith('.xlsx')) {
-      toast({
-        title: 'Atenção',
-        description: 'Por favor, salve seu arquivo Excel como CSV (.csv) para importar.',
-        variant: 'destructive',
-      })
+      toast.error('Por favor, salve seu arquivo Excel como CSV (.csv) para importar.')
       e.target.value = ''
       return
     }
@@ -46,27 +53,33 @@ export function ImportCSVModal({ onImport }: ImportCSVModalProps) {
       const text = event.target?.result as string
       const lines = text.split('\n').filter((l) => l.trim().length > 0)
       if (lines.length < 2) {
-        toast({ title: 'Erro', description: 'Arquivo vazio ou sem dados.', variant: 'destructive' })
+        toast.error('Arquivo vazio ou sem dados.')
         return
       }
 
       const headers = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/"/g, ''))
 
       const parsed = lines.slice(1).map((line) => {
-        // simple CSV parsing handling quotes partially
-        const values = line.split(',').map((v) => v.trim().replace(/^"|"$/g, ''))
+        const values = []
+        let current = ''
+        let inQuotes = false
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i]
+          if (char === '"') inQuotes = !inQuotes
+          else if (char === ',' && !inQuotes) {
+            values.push(current.trim().replace(/^"|"$/g, ''))
+            current = ''
+          } else current += char
+        }
+        values.push(current.trim().replace(/^"|"$/g, ''))
+
         const obj: any = {}
         headers.forEach((h, i) => {
           let val = values[i] || ''
-          if (h === 'valor' || h === 'amount') val = parseFloat(val) as any
+          if (h === 'valor') val = parseFloat(val) as any
           obj[h] = val
         })
-        return {
-          data: obj.data || obj.date || new Date().toISOString().split('T')[0],
-          valor: obj.valor || obj.amount || 0,
-          categoria: obj.categoria || obj.category || 'Importado',
-          descricao: obj.descricao || obj.description || 'Importação',
-        }
+        return obj
       })
 
       setPreview(parsed)
@@ -78,15 +91,11 @@ export function ImportCSVModal({ onImport }: ImportCSVModalProps) {
     setLoading(true)
     try {
       await onImport(preview)
-      toast({ title: 'Sucesso', description: 'Dados importados com sucesso!' })
+      toast.success('Dados importados com sucesso!')
       setOpen(false)
       setPreview([])
     } catch (e) {
-      toast({
-        title: 'Erro',
-        description: 'Erro ao importar dados. Verifique a formatação.',
-        variant: 'destructive',
-      })
+      toast.error('Erro ao importar arquivo.')
     } finally {
       setLoading(false)
     }
@@ -107,7 +116,7 @@ export function ImportCSVModal({ onImport }: ImportCSVModalProps) {
       <DialogTrigger asChild>
         <Button variant="outline" className="text-slate-600 bg-white shadow-sm border-slate-200">
           <FileUp className="h-4 w-4 mr-2" />
-          Importar Excel
+          Importar Excel/CSV
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
@@ -124,7 +133,7 @@ export function ImportCSVModal({ onImport }: ImportCSVModalProps) {
             />
             <p className="text-xs text-slate-500 mt-3">
               O arquivo deve ser um CSV e conter as colunas:{' '}
-              <strong>data, valor, categoria, descricao</strong>.
+              <strong>{expectedCols.join(', ')}</strong>.
             </p>
           </div>
 
@@ -134,19 +143,26 @@ export function ImportCSVModal({ onImport }: ImportCSVModalProps) {
                 <Table>
                   <TableHeader className="bg-slate-50 sticky top-0">
                     <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Valor</TableHead>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead>Descrição</TableHead>
+                      {expectedCols.map((col) => (
+                        <TableHead key={col} className="capitalize">
+                          {col}
+                        </TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {preview.slice(0, 50).map((row, i) => (
                       <TableRow key={i}>
-                        <TableCell>{row.data}</TableCell>
-                        <TableCell className="font-mono text-right">{row.valor}</TableCell>
-                        <TableCell>{row.categoria}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">{row.descricao}</TableCell>
+                        {expectedCols.map((col) => (
+                          <TableCell
+                            key={col}
+                            className={
+                              col === 'valor' ? 'font-mono text-right' : 'max-w-[200px] truncate'
+                            }
+                          >
+                            {row[col]}
+                          </TableCell>
+                        ))}
                       </TableRow>
                     ))}
                   </TableBody>

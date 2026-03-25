@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth, Profile } from '@/hooks/use-auth'
 import pb from '@/lib/pocketbase/client'
-import { toast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import {
   Table,
   TableBody,
@@ -33,7 +33,6 @@ export default function Usuarios() {
   const [loading, setLoading] = useState(true)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
-  // Form state
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -46,7 +45,7 @@ export default function Usuarios() {
         id: u.id,
         email: u.email,
         full_name: u.name,
-        role: 'membro', // we default to member, could add role to schema if needed
+        role: 'membro',
         is_active: u.verified,
       }))
       setUsers(mapped as Profile[])
@@ -76,7 +75,7 @@ export default function Usuarios() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!nome || !email) {
-      toast({ title: 'Erro', description: 'Preencha todos os campos.', variant: 'destructive' })
+      toast.error('Preencha todos os campos.')
       return
     }
 
@@ -86,11 +85,7 @@ export default function Usuarios() {
     try {
       await createUser({ name: nome, email, password: senhaTemporaria })
 
-      // Mock email sending since we don't have the explicit Edge Function here for emails,
-      // PB could trigger it via after create hooks, or we just notify admin.
-      toast({
-        title: 'Sucesso',
-        description: `Usuário cadastrado com sucesso. A senha temporária é: ${senhaTemporaria}`,
+      toast.success(`Usuário cadastrado. A senha temporária é: ${senhaTemporaria}`, {
         duration: 10000,
       })
 
@@ -99,14 +94,11 @@ export default function Usuarios() {
       setEmail('')
       fetchUsers()
     } catch (err: any) {
-      toast({
-        title: 'Erro ao criar usuário',
-        description:
-          err.message === 'conflict_email'
-            ? 'Este email já está em uso.'
-            : 'Falha na comunicação com o servidor.',
-        variant: 'destructive',
-      })
+      toast.error(
+        err.message === 'conflict_email'
+          ? 'Este email já está em uso.'
+          : 'Falha na comunicação com o servidor.',
+      )
     } finally {
       setIsSubmitting(false)
     }

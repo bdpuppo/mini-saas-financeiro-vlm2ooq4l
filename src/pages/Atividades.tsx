@@ -9,7 +9,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
 import { ActivityFormDrawer } from '@/components/ActivityFormDrawer'
 import { ImportCSVModal } from '@/components/ImportCSVModal'
 import { VoiceEntryFormModal } from '@/components/VoiceEntryFormModal'
@@ -37,11 +36,10 @@ export default function Atividades() {
   const handleImportAtividades = async (data: any[]) => {
     for (const row of data) {
       await addActivity({
-        title: row.descricao || row.categoria || 'Importado via CSV',
-        activity_date: row.data,
-        status: 'OK',
-        type: 'importação',
-        content: JSON.stringify(row),
+        title: row.descricao || 'Atividade Importada',
+        activity_date: row.data || new Date().toISOString().split('T')[0],
+        status: row.status || 'Aguardando',
+        responsible: row.responsavel || '',
       })
     }
   }
@@ -53,21 +51,26 @@ export default function Atividades() {
 
   useEffect(() => {
     if (transcript && !isListening) {
+      const data = new Date().toISOString().split('T')[0]
+      let status = 'Aguardando'
       const tLower = transcript.toLowerCase()
-      const type = tLower.includes('lançamento') ? 'lançamento' : 'atividade'
 
-      const amountMatch = transcript.match(/\d+(?:,\d+)?/)
-      const amount = amountMatch ? amountMatch[0].replace(',', '.') : ''
+      if (tLower.includes('concluído') || tLower.includes('concluido') || tLower.includes('ok'))
+        status = 'OK'
+      if (tLower.includes('pendente')) status = 'Aguardando'
+      if (tLower.includes('andamento')) status = 'Andamento'
 
-      let category = 'Geral'
-      const words = tLower.split(' ')
-      if (words.length > 2) category = words[words.length - 1] // highly naive fallback
+      let responsavel = ''
+      const respMatch = transcript.match(/responsável\s+([a-zA-ZÀ-ÿ]+)/i)
+      if (respMatch) {
+        responsavel = respMatch[1]
+      }
 
       setVoiceData({
-        type,
-        amount,
-        category,
-        dateStr: new Date().toISOString().split('T')[0],
+        descricao: transcript,
+        data,
+        status,
+        responsavel,
       })
       setShowVoiceModal(true)
       setTranscript('')
@@ -80,11 +83,11 @@ export default function Atividades() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Lista de Atividades</h1>
           <p className="text-slate-500 text-sm mt-1">
-            Acompanhamento operacional de tarefas, logs e registros de voz.
+            Acompanhamento operacional de tarefas e registros de voz.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <ImportCSVModal onImport={handleImportAtividades} />
+          <ImportCSVModal onImport={handleImportAtividades} modelType="atividades" />
 
           {supported && (
             <Button
@@ -116,18 +119,16 @@ export default function Atividades() {
           <TableHeader className="bg-slate-50">
             <TableRow>
               <TableHead className="w-[100px]">Data</TableHead>
-              <TableHead>Atividade / Título</TableHead>
+              <TableHead>Descrição</TableHead>
               <TableHead>Responsável</TableHead>
-              <TableHead>Tipo</TableHead>
               <TableHead className="w-[130px]">Status</TableHead>
-              <TableHead className="max-w-[200px]">Conteúdo / Notas</TableHead>
               <TableHead className="w-[90px] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading && activities.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
+                <TableCell colSpan={5} className="text-center py-8">
                   <div className="flex justify-center">
                     <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                   </div>
@@ -136,7 +137,7 @@ export default function Atividades() {
             )}
             {!isLoading && activities.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-slate-500">
+                <TableCell colSpan={5} className="text-center py-8 text-slate-500">
                   Nenhuma atividade encontrada no banco de dados.
                 </TableCell>
               </TableRow>
@@ -148,9 +149,6 @@ export default function Atividades() {
                   </TableCell>
                   <TableCell className="font-medium text-slate-800">{act.title}</TableCell>
                   <TableCell className="text-slate-600">{act.responsible || '-'}</TableCell>
-                  <TableCell className="text-slate-600 capitalize">
-                    {act.type || 'Tarefa'}
-                  </TableCell>
                   <TableCell>
                     <div
                       className={cn(
@@ -160,12 +158,6 @@ export default function Atividades() {
                     >
                       {act.status}
                     </div>
-                  </TableCell>
-                  <TableCell
-                    className="max-w-[200px] truncate text-slate-500 italic"
-                    title={act.content || act.notes || ''}
-                  >
-                    {act.content || act.notes || '-'}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

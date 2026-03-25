@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { toast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -106,10 +106,8 @@ export default function Login() {
     const { error } = await signIn(email, password)
     setIsSubmitting(false)
     if (error) {
-      toast({
-        title: 'Erro ao entrar',
-        description: 'Verifique suas credenciais.',
-        variant: 'destructive',
+      toast.error('Verifique suas credenciais.', {
+        description: 'Erro ao entrar.',
       })
     }
   }
@@ -123,10 +121,7 @@ export default function Login() {
 
     try {
       await createUser({ name, email, password })
-      toast({
-        title: 'Cadastro realizado com sucesso!',
-        variant: 'default',
-      })
+      toast.success('Cadastro realizado com sucesso!')
 
       setTimeout(() => {
         handleTabChange('login')
@@ -144,11 +139,7 @@ export default function Login() {
       if (error.message === 'conflict_email') {
         setEmailErrorMsg('Este email já está cadastrado')
       } else {
-        toast({
-          title: 'Erro ao criar conta',
-          description: 'Erro ao criar conta. Tente novamente',
-          variant: 'destructive',
-        })
+        toast.error('Erro ao criar conta. Tente novamente.')
         setShowRetry(true)
       }
     } finally {
@@ -162,14 +153,10 @@ export default function Login() {
     setIsForgotLoading(true)
     try {
       await requestPasswordReset(forgotEmail)
-      toast({ title: 'Email enviado', description: 'Instruções enviadas para seu e-mail.' })
+      toast.success('Email enviado', { description: 'Instruções enviadas para seu e-mail.' })
       setShowForgot(false)
     } catch (e) {
-      toast({
-        title: 'Erro',
-        description: 'Falha ao solicitar redefinição.',
-        variant: 'destructive',
-      })
+      toast.error('Falha ao solicitar redefinição.')
     } finally {
       setIsForgotLoading(false)
     }

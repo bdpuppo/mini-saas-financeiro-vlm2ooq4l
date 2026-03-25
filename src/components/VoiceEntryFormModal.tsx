@@ -3,64 +3,48 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { toast } from '@/hooks/use-toast'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { toast } from 'sonner'
 import useFinanceStore from '@/stores/useFinanceStore'
 import { Loader2 } from 'lucide-react'
 
 export function VoiceEntryFormModal({ open, onOpenChange, initialData }: any) {
-  const { addActivity, addTransaction } = useFinanceStore()
-  const [type, setType] = useState(initialData?.type || 'lançamento')
-  const [amount, setAmount] = useState(initialData?.amount || '')
-  const [category, setCategory] = useState(initialData?.category || '')
-  const [dateStr, setDateStr] = useState(
-    initialData?.dateStr || new Date().toISOString().split('T')[0],
-  )
+  const { addActivity } = useFinanceStore()
+  const [descricao, setDescricao] = useState(initialData?.descricao || '')
+  const [status, setStatus] = useState(initialData?.status || 'Aguardando')
+  const [responsavel, setResponsavel] = useState(initialData?.responsavel || '')
+  const [data, setData] = useState(initialData?.data || new Date().toISOString().split('T')[0])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (open && initialData) {
-      setType(initialData.type || 'lançamento')
-      setAmount(initialData.amount || '')
-      setCategory(initialData.category || '')
-      setDateStr(initialData.dateStr || new Date().toISOString().split('T')[0])
+      setDescricao(initialData.descricao || '')
+      setStatus(initialData.status || 'Aguardando')
+      setResponsavel(initialData.responsavel || '')
+      setData(initialData.data || new Date().toISOString().split('T')[0])
     }
   }, [open, initialData])
 
   const handleSave = async () => {
     setLoading(true)
     try {
-      const contentData = JSON.stringify({ amount, category, dateStr })
-
       await addActivity({
-        type: type,
-        content: contentData,
-        title: `Voz: ${type} - ${category} - R$ ${amount}`,
-        activity_date: dateStr,
-        status: 'OK',
-        notes: 'Gerado via comando de voz',
+        title: descricao,
+        activity_date: data,
+        status: status,
+        responsible: responsavel,
       })
 
-      // If it's explicitly a financial transaction, we also add it to lancamentos
-      if (type.toLowerCase() === 'lançamento') {
-        await addTransaction({
-          date: dateStr,
-          amount: Math.abs(Number(amount) || 0),
-          category: category,
-          description: `Voz: ${category}`,
-          entity: 'Entrada Voz',
-          status: 'realizado',
-          type: 'saida',
-        })
-      }
-
-      toast({ title: 'Sucesso', description: 'Entrada por voz registrada e processada.' })
+      toast.success('Entrada por voz registrada e processada.')
       onOpenChange(false)
     } catch (e) {
-      toast({
-        title: 'Erro',
-        description: 'Falha ao salvar a entrada por voz.',
-        variant: 'destructive',
-      })
+      toast.error('Falha ao salvar a entrada por voz.')
     } finally {
       setLoading(false)
     }
@@ -70,29 +54,36 @@ export function VoiceEntryFormModal({ open, onOpenChange, initialData }: any) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Revisar Entrada por Voz</DialogTitle>
+          <DialogTitle>Revisar Entrada por Voz (Atividade)</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>Tipo Reconhecido</Label>
-            <Input value={type} onChange={(e) => setType(e.target.value)} />
+            <Label>Descrição</Label>
+            <Input value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="OK">OK</SelectItem>
+                  <SelectItem value="Andamento">Andamento</SelectItem>
+                  <SelectItem value="Aguardando">Aguardando</SelectItem>
+                  <SelectItem value="Parado">Parado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Data</Label>
+              <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
+            </div>
           </div>
           <div className="space-y-2">
-            <Label>Valor Extraído (R$)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Categoria Identificada</Label>
-            <Input value={category} onChange={(e) => setCategory(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>Data Aplicada</Label>
-            <Input type="date" value={dateStr} onChange={(e) => setDateStr(e.target.value)} />
+            <Label>Responsável</Label>
+            <Input value={responsavel} onChange={(e) => setResponsavel(e.target.value)} />
           </div>
         </div>
         <div className="flex justify-end gap-3 mt-2">

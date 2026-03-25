@@ -20,7 +20,7 @@ import {
 import { Mic, MicOff } from 'lucide-react'
 import useFinanceStore, { TransactionType, Transaction } from '@/stores/useFinanceStore'
 import { useSpeechRecognition } from '@/hooks/use-speech'
-import { toast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -36,6 +36,7 @@ function parseTranscript(text: string) {
   let description = text
   let dateStr = ''
   let category = ''
+  let entity = ''
 
   const amountRegex =
     /(?:R\$\s*|reais\s*)?(\d{1,3}(?:\.\d{3})*(?:,\d+)?|\d+(?:,\d+)?)\s*(?:reais|centavos)?/i
@@ -46,36 +47,15 @@ function parseTranscript(text: string) {
     description = description.replace(match[0], '').trim()
   }
 
-  const tLower = text.toLowerCase()
   const d = new Date()
-  if (tLower.includes('ontem')) {
+  if (text.toLowerCase().includes('ontem')) {
     d.setDate(d.getDate() - 1)
     dateStr = d.toISOString().split('T')[0]
-    description = description.replace(/ontem/i, '').trim()
-  } else if (tLower.includes('amanhã') || tLower.includes('amanha')) {
+  } else if (text.toLowerCase().includes('amanhã')) {
     d.setDate(d.getDate() + 1)
     dateStr = d.toISOString().split('T')[0]
-    description = description.replace(/amanhã|amanha/i, '').trim()
-  } else if (tLower.includes('hoje')) {
+  } else {
     dateStr = d.toISOString().split('T')[0]
-    description = description.replace(/hoje/i, '').trim()
-  }
-
-  const catMatch = description.match(/categoria\s+([a-zA-ZÀ-ÿ\s]+)/i)
-  if (catMatch) {
-    category = catMatch[1].trim()
-    description = description.replace(catMatch[0], '').trim()
-  }
-
-  let entity = ''
-  const entMatch = description.match(/(?:para a|para o|para|no|na)\s+([a-zA-ZÀ-ÿ\s]+)(?=\s|$)/i)
-  if (entMatch) {
-    entity = entMatch[1].trim()
-  }
-
-  description = description.replace(/\s+/g, ' ').trim()
-  if (description.length > 0) {
-    description = description.charAt(0).toUpperCase() + description.slice(1)
   }
 
   return { amount, description, dateStr, category, entity }
@@ -114,19 +94,10 @@ export function TransactionFormDrawer({
 
   useEffect(() => {
     if (transcript) {
-      const {
-        amount: pAmount,
-        description: pDesc,
-        dateStr: pDate,
-        category: pCat,
-        entity: pEnt,
-      } = parseTranscript(transcript)
-
-      if (pAmount) setAmount(pAmount)
-      if (pDate) setDate(pDate)
-      if (pCat) setCategory(pCat)
-      if (pEnt) setEntity(pEnt)
-      if (pDesc) setDescription(pDesc)
+      const parsed = parseTranscript(transcript)
+      if (parsed.amount) setAmount(parsed.amount)
+      if (parsed.dateStr) setDate(parsed.dateStr)
+      if (parsed.description) setDescription(parsed.description)
 
       const tLower = transcript.toLowerCase()
       if (tLower.includes('recebi') || tLower.includes('vendi') || tLower.includes('entrou')) {
@@ -142,10 +113,7 @@ export function TransactionFormDrawer({
         setStatus('realizado')
       }
 
-      toast({
-        title: 'Áudio processado',
-        description: 'Os campos foram preenchidos. Revise antes de salvar.',
-      })
+      toast.success('Áudio processado', { description: 'Campos preenchidos.' })
     }
   }, [transcript])
 
@@ -153,11 +121,15 @@ export function TransactionFormDrawer({
     if (editItem) {
       setType(editItem.type)
       setStatus(
-        editItem.status === 'recebido' || editItem.status === 'pago' ? 'realizado' : 'previsto',
+        editItem.status === 'recebido' ||
+          editItem.status === 'pago' ||
+          editItem.status === 'realizado'
+          ? 'realizado'
+          : 'previsto',
       )
       setDate(editItem.date)
       setAmount(editItem.amount.toString())
-      setEntity(editItem.entity)
+      setEntity(editItem.entity !== 'Desconhecido' ? editItem.entity : '')
       setDescription(editItem.description || '')
       setCategory(editItem.category || '')
     } else if (open) {
@@ -176,12 +148,8 @@ export function TransactionFormDrawer({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!date || !amount || !entity || !category) {
-      toast({
-        title: 'Erro',
-        description: 'Preencha todos os campos obrigatórios.',
-        variant: 'destructive',
-      })
+    if (!date || !amount || !category) {
+      toast.error('Preencha os campos obrigatórios.')
       return
     }
 
@@ -199,18 +167,14 @@ export function TransactionFormDrawer({
     try {
       if (editItem) {
         await updateTransaction(editItem.id, payload, editItem.rawSource)
-        toast({ title: 'Sucesso', description: 'Lançamento atualizado com sucesso!' })
+        toast.success('Lançamento atualizado com sucesso!')
       } else {
         await addTransaction(payload)
-        toast({ title: 'Sucesso', description: 'Lançamento adicionado com sucesso!' })
+        toast.success('Lançamento adicionado com sucesso!')
       }
       onOpenChange(false)
     } catch (error) {
-      toast({
-        title: 'Erro',
-        description: 'Falha ao salvar. Verifique sua conexão.',
-        variant: 'destructive',
-      })
+      toast.error('Falha ao salvar.')
     } finally {
       setIsSubmitting(false)
     }
@@ -263,13 +227,6 @@ export function TransactionFormDrawer({
                 </>
               )}
             </Button>
-
-            {transcript && (
-              <div className="mt-3 p-3 bg-white border border-slate-100 rounded-md shadow-sm">
-                <p className="text-xs text-slate-500 mb-1 font-medium">Transcrição:</p>
-                <p className="text-sm text-slate-700 italic">"{transcript}"</p>
-              </div>
-            )}
           </div>
         )}
 
@@ -293,7 +250,11 @@ export function TransactionFormDrawer({
             </div>
             <div className="space-y-1.5">
               <Label>Status</Label>
-              <Select value={status} onValueChange={(val) => setStatus(val)}>
+              <Select
+                value={status}
+                onValueChange={(val) => setStatus(val)}
+                disabled={!!editItem && editItem.rawSource === 'ft'}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
@@ -323,15 +284,16 @@ export function TransactionFormDrawer({
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Entidade</Label>
-            <Input
-              value={entity}
-              onChange={(e) => setEntity(e.target.value)}
-              placeholder="Cliente ou fornecedor"
-              required
-            />
-          </div>
+          {status === 'previsto' && (
+            <div className="space-y-1.5">
+              <Label>{type === 'entrada' ? 'Cliente' : 'Favorecido'}</Label>
+              <Input
+                value={entity}
+                onChange={(e) => setEntity(e.target.value)}
+                placeholder="Nome..."
+              />
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label>Descrição</Label>

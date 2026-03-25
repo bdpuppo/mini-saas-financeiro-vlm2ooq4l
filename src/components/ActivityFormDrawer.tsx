@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import useFinanceStore, { Activity, ActivityStatus } from '@/stores/useFinanceStore'
-import { toast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 
 interface Props {
   open: boolean
@@ -34,8 +34,6 @@ export function ActivityFormDrawer({ open, onOpenChange, editItem }: Props) {
   const [title, setTitle] = useState('')
   const [responsible, setResponsible] = useState('')
   const [status, setStatus] = useState<ActivityStatus>('Aguardando')
-  const [percentage, setPercentage] = useState('0')
-  const [notes, setNotes] = useState('')
 
   useEffect(() => {
     if (editItem) {
@@ -43,26 +41,18 @@ export function ActivityFormDrawer({ open, onOpenChange, editItem }: Props) {
       setTitle(editItem.title)
       setResponsible(editItem.responsible || '')
       setStatus(editItem.status)
-      setPercentage((editItem.percentage || 0).toString())
-      setNotes(editItem.notes || '')
     } else if (open) {
       setDate(new Date().toISOString().split('T')[0])
       setTitle('')
       setResponsible('')
       setStatus('Aguardando')
-      setPercentage('0')
-      setNotes('')
     }
   }, [editItem, open])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!date || !title) {
-      toast({
-        title: 'Erro',
-        description: 'Data e Título são obrigatórios.',
-        variant: 'destructive',
-      })
+      toast.error('Data e Descrição são obrigatórios.')
       return
     }
 
@@ -72,8 +62,6 @@ export function ActivityFormDrawer({ open, onOpenChange, editItem }: Props) {
       title,
       responsible,
       status,
-      percentage: Number(percentage),
-      notes,
     }
 
     try {
@@ -82,7 +70,7 @@ export function ActivityFormDrawer({ open, onOpenChange, editItem }: Props) {
         // Toast is handled in store
       } else {
         await addActivity(payload)
-        toast({ title: 'Sucesso', description: 'Atividade criada com sucesso!' })
+        toast.success('Atividade criada com sucesso!')
       }
       onOpenChange(false)
     } catch (error) {
@@ -111,7 +99,7 @@ export function ActivityFormDrawer({ open, onOpenChange, editItem }: Props) {
           </div>
 
           <div className="space-y-1.5">
-            <Label>Título</Label>
+            <Label>Descrição</Label>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -143,27 +131,6 @@ export function ActivityFormDrawer({ open, onOpenChange, editItem }: Props) {
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Progresso (%)</Label>
-            <Input
-              type="number"
-              min="0"
-              max="100"
-              value={percentage}
-              onChange={(e) => setPercentage(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Notas</Label>
-            <textarea
-              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Observações adicionais..."
-            />
           </div>
 
           <SheetFooter className="mt-8">

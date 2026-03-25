@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { toast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import pb from '@/lib/pocketbase/client'
 import { Loader2 } from 'lucide-react'
 
@@ -17,19 +17,11 @@ export default function Perfil() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (newPassword !== confirmPassword) {
-      toast({
-        title: 'Erro',
-        description: 'A nova senha e a confirmação não coincidem.',
-        variant: 'destructive',
-      })
+      toast.error('A nova senha e a confirmação não coincidem.')
       return
     }
     if (newPassword.length < 8) {
-      toast({
-        title: 'Erro',
-        description: 'A senha deve ter no mínimo 8 caracteres.',
-        variant: 'destructive',
-      })
+      toast.error('A senha deve ter no mínimo 8 caracteres.')
       return
     }
 
@@ -51,16 +43,12 @@ export default function Perfil() {
         password_hash: data.hash,
       })
 
-      toast({ title: 'Sucesso', description: 'Senha atualizada com sucesso!' })
+      toast.success('Senha atualizada com sucesso!')
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
     } catch (err: any) {
-      toast({
-        title: 'Erro',
-        description: err.message || 'Erro ao atualizar a senha. Verifique a senha atual.',
-        variant: 'destructive',
-      })
+      toast.error(err.message || 'Erro ao atualizar a senha. Verifique a senha atual.')
     } finally {
       setLoading(false)
     }

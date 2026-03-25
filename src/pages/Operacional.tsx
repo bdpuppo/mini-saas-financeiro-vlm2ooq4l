@@ -28,10 +28,7 @@ export default function Operacional() {
 
   const todaysReceivables = useMemo(() => {
     const fromAR = transactionsAR.filter(
-      (t) =>
-        (extractDate(t.date) === normCurrentDate ||
-          extractDate(t.received_date) === normCurrentDate) &&
-        t.status?.toLowerCase() !== 'cancelado',
+      (t) => extractDate(t.date) === normCurrentDate && t.status?.toLowerCase() !== 'cancelado',
     )
     const fromFT = transactionsFT.filter(
       (t) =>
@@ -44,9 +41,7 @@ export default function Operacional() {
 
   const todaysPayables = useMemo(() => {
     const fromAP = transactionsAP.filter(
-      (t) =>
-        (extractDate(t.date) === normCurrentDate || extractDate(t.paid_date) === normCurrentDate) &&
-        t.status?.toLowerCase() !== 'cancelado',
+      (t) => extractDate(t.date) === normCurrentDate && t.status?.toLowerCase() !== 'cancelado',
     )
     const fromFT = transactionsFT.filter(
       (t) =>
@@ -74,7 +69,6 @@ export default function Operacional() {
   const sumOut = todaysPayables.reduce((a, b) => a + Number(b.amount), 0)
 
   const weekDays = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
-  // Use T12:00:00 to avoid timezone shifting back a day
   const weekDayName = weekDays[new Date(normCurrentDate + 'T12:00:00').getDay()]
 
   if (
